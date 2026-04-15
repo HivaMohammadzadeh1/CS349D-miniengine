@@ -28,3 +28,4 @@ Create a VM instance with the following configuration:
 > **Note:** You may need to request a GPU quota increase (GPUs all regions: 0/0 → 1). This is processed automatically and takes a few minutes.
 
 ![VM configuration with T4 GPU](images/03-vm-configuration.png)
+![VM Storage and Image](images/04-vm-image.png)
