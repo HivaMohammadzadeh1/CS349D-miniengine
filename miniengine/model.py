@@ -184,6 +184,7 @@ class Attention(nn.Module):
         cos: torch.Tensor,
         sin: torch.Tensor,
         kv_cache: tuple[torch.Tensor, torch.Tensor] | None = None,
+        attention_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         """
         Args:
@@ -191,6 +192,8 @@ class Attention(nn.Module):
             cos, sin: from RotaryEmbedding, broadcastable
             kv_cache: optional (cached_k, cached_v) each
                       (batch, num_kv_heads, cache_len, head_dim)
+            attention_mask: optional (batch, 1, seq_len_q, seq_len_kv) float
+                      mask added to attention weights (0 = attend, -inf = ignore)
 
         Returns:
             output:       (batch, seq_len, hidden_size)
@@ -225,8 +228,11 @@ class Attention(nn.Module):
             v = v.reshape(bsz, self.num_heads, -1, self.head_dim)
 
         # Scaled dot-product attention (uses Flash Attention when available)
-        is_causal = kv_cache is None and seq_len > 1
-        out = F.scaled_dot_product_attention(q, k, v, is_causal=is_causal)
+        if attention_mask is not None:
+            out = F.scaled_dot_product_attention(q, k, v, attn_mask=attention_mask)
+        else:
+            is_causal = kv_cache is None and seq_len > 1
+            out = F.scaled_dot_product_attention(q, k, v, is_causal=is_causal)
 
         # Merge heads → project back
         out = out.transpose(1, 2).contiguous().view(bsz, seq_len, -1)
@@ -268,10 +274,11 @@ class TransformerBlock(nn.Module):
         cos: torch.Tensor,
         sin: torch.Tensor,
         kv_cache: tuple[torch.Tensor, torch.Tensor] | None = None,
+        attention_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         residual = hidden
         hidden = self.input_layernorm(hidden)
-        hidden, new_kv = self.self_attn(hidden, cos, sin, kv_cache)
+        hidden, new_kv = self.self_attn(hidden, cos, sin, kv_cache, attention_mask)
         hidden = residual + hidden
 
         residual = hidden
@@ -302,12 +309,14 @@ class TransformerModel(nn.Module):
         input_ids: torch.Tensor,
         position_ids: torch.Tensor,
         kv_caches: list[tuple[torch.Tensor, torch.Tensor]] | None = None,
+        attention_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, list[tuple[torch.Tensor, torch.Tensor]]]:
         """
         Args:
             input_ids:    (batch, seq_len)
             position_ids: (batch, seq_len)
             kv_caches:    list of per-layer (key, value) caches, or None
+            attention_mask: optional (batch, 1, seq_len_q, seq_len_kv) float mask
 
         Returns:
             hidden:         (batch, seq_len, hidden_size)
@@ -319,7 +328,7 @@ class TransformerModel(nn.Module):
         new_kv_caches: list[tuple[torch.Tensor, torch.Tensor]] = []
         for i, layer in enumerate(self.layers):
             kv = kv_caches[i] if kv_caches is not None else None
-            hidden, new_kv = layer(hidden, cos, sin, kv)
+            hidden, new_kv = layer(hidden, cos, sin, kv, attention_mask)
             new_kv_caches.append(new_kv)
 
         hidden = self.norm(hidden)
@@ -345,13 +354,14 @@ class CausalLM(nn.Module):
         input_ids: torch.Tensor,
         position_ids: torch.Tensor,
         kv_caches: list[tuple[torch.Tensor, torch.Tensor]] | None = None,
+        attention_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, list[tuple[torch.Tensor, torch.Tensor]]]:
         """
         Returns:
             logits:        (batch, seq_len, vocab_size)
             new_kv_caches: per-layer KV caches
         """
-        hidden, new_kv_caches = self.model(input_ids, position_ids, kv_caches)
+        hidden, new_kv_caches = self.model(input_ids, position_ids, kv_caches, attention_mask)
         if self.config.tie_word_embeddings:
             logits = F.linear(hidden, self.model.embed_tokens.weight)
         else:

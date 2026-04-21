@@ -137,6 +137,9 @@ def prepare_requests(
             ids = tokenizer.apply_chat_template(
                 messages, tokenize=True, add_generation_prompt=True,
             )
+        # transformers >= 5.0.0 returns a dict instead of a list
+        if hasattr(ids, "keys") and "input_ids" in ids:
+            ids = ids["input_ids"]
 
         if len(ids) > req_input_len:
             # Truncate: decode back to text from truncated ids
@@ -146,25 +149,33 @@ def prepare_requests(
             messages = [{"role": "user", "content": truncated_text}]
             actual_input_len = req_input_len
         elif len(ids) < req_input_len:
-            # Pad by repeating the prompt
+            # Pad by adding filler in bulk rather than one sentence at a time
             filler = " The quick brown fox jumps over the lazy dog."
-            padded = raw_prompt
-            while True:
-                padded += filler
-                msgs = [{"role": "user", "content": padded}]
-                try:
-                    test_ids = tokenizer.apply_chat_template(
-                        msgs, tokenize=True, add_generation_prompt=True,
-                        enable_thinking=False,
-                    )
-                except TypeError:
-                    test_ids = tokenizer.apply_chat_template(
-                        msgs, tokenize=True, add_generation_prompt=True,
-                    )
-                if len(test_ids) >= req_input_len:
-                    messages = msgs
-                    actual_input_len = len(test_ids)
-                    break
+            tokens_needed = req_input_len - len(ids)
+            # ~10 tokens per filler sentence, overshoot then truncate
+            repeats = (tokens_needed // 8) + 2
+            padded = raw_prompt + filler * repeats
+            msgs = [{"role": "user", "content": padded}]
+            try:
+                test_ids = tokenizer.apply_chat_template(
+                    msgs, tokenize=True, add_generation_prompt=True,
+                    enable_thinking=False,
+                )
+            except TypeError:
+                test_ids = tokenizer.apply_chat_template(
+                    msgs, tokenize=True, add_generation_prompt=True,
+                )
+            # transformers >= 5.0.0 returns a dict instead of a list
+            if hasattr(test_ids, "keys") and "input_ids" in test_ids:
+                test_ids = test_ids["input_ids"]
+            # Truncate if we overshot
+            if len(test_ids) > req_input_len:
+                truncated_text = tokenizer.decode(test_ids[:req_input_len], skip_special_tokens=True)
+                messages = [{"role": "user", "content": truncated_text}]
+                actual_input_len = req_input_len
+            else:
+                messages = msgs
+                actual_input_len = len(test_ids)
         else:
             actual_input_len = len(ids)
 

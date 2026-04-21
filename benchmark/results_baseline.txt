@@ -1,0 +1,34 @@
+Baseline Benchmark Results
+==========================
+VM: Google Deep Learning VM (cs349d-milestone1, us-central1-a)
+Image: common-cu129-ubuntu-2404-nvidia-580-stage
+Model: Qwen/Qwen3-0.6B
+Scheduler: Naive FCFS (one request at a time, no batching)
+
+Config:
+  Requests     : 100
+  Input len    : 1024
+  Output len   : 1024
+  Randomness   : 1.0
+  Concurrencies: [1, 2, 4, 8, 16, 32]
+
+Per-concurrency results:
+  conc=1    TTFT p50=     99ms  p99=    106ms  Compl p50=    103ms  p99=  32318ms  GenTok/s=     32  ok=100
+  conc=2    TTFT p50=    197ms  p99=  32347ms  Compl p50=  32070ms  p99=  64256ms  GenTok/s=     32  ok=100
+  conc=4    TTFT p50=  31063ms  p99=  79746ms  Compl p50=  60393ms  p99=  92587ms  GenTok/s=     34  ok=100
+  conc=8    TTFT p50=  91345ms  p99= 152436ms  Compl p50=  91691ms  p99= 182880ms  GenTok/s=     34  ok=100
+  conc=16   TTFT p50= 148529ms  p99= 227943ms  Compl p50= 178618ms  p99= 335495ms  GenTok/s=     34  ok=100
+  conc=32   TTFT p50= 190384ms  p99= 329188ms  Compl p50= 275617ms  p99= 534510ms  GenTok/s=     14  ok=76
+
+Summary table:
+====================================================================================================
+ Conc   TTFT_p50   TTFT_p99  Compl_p50  Compl_p99   TPOT_p50   TPOT_p99   GenTok/s    OK
+       (ms)       (ms)        (ms)        (ms)        (ms)        (ms)
+----------------------------------------------------------------------------------------------------
+    1         99        106        103      32318       31.2       31.7         32   100
+    2        197      32347      32070      64256       31.2       31.4         32   100
+    4      31063      79746      60393      92587       29.4       30.7         34   100
+    8      91345     152436      91691     182880       29.6       30.1         34   100
+   16     148529     227943     178618     335495      115.9      148.4         34   100
+   32     190384     329188     275617     534510      108.8      363.3         14    76
+====================================================================================================

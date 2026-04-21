@@ -24,6 +24,7 @@ import logging
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 from transformers import AutoTokenizer
 
 from miniengine.core import Request
@@ -164,6 +165,96 @@ class Engine:
         return sample_token(
             logits[:, -1, :], request.sampling_params, request.output_ids
         )
+
+    @torch.inference_mode()
+    def batched_decode(self, requests: list[Request]) -> list[int]:
+        """
+        Run one decode step for multiple requests in a single batched forward pass.
+
+        Pads KV caches to the max cache length, builds an attention mask to
+        ignore padding, runs one forward pass, then extracts per-request KV
+        caches (removing padding) and samples one token per request.
+
+        Returns:
+            List of next token ids, one per request.
+        """
+        batch_size = len(requests)
+
+        # 1. Stack last tokens → (batch, 1)
+        input_ids = torch.tensor(
+            [[req.output_ids[-1]] for req in requests],
+            dtype=torch.long, device=self.device,
+        )
+
+        # 2. Cache lengths per request
+        cache_lens = [req.kv_cache[0][0].shape[2] for req in requests]
+        max_cache_len = max(cache_lens)
+
+        # 3. Position IDs: each request's position = its own cache length
+        position_ids = torch.tensor(
+            [[cl] for cl in cache_lens], device=self.device,
+        )
+
+        # 4. Pad KV caches per layer and stack into batched tensors
+        num_layers = len(requests[0].kv_cache)
+        padded_kv_caches: list[tuple[torch.Tensor, torch.Tensor]] = []
+        for layer_idx in range(num_layers):
+            keys = []
+            values = []
+            for req_idx, req in enumerate(requests):
+                k, v = req.kv_cache[layer_idx]
+                # k, v: (1, kv_heads, cache_len_i, head_dim)
+                pad_len = max_cache_len - cache_lens[req_idx]
+                if pad_len > 0:
+                    k = F.pad(k, (0, 0, 0, pad_len))  # pad seq dim on right
+                    v = F.pad(v, (0, 0, 0, pad_len))
+                keys.append(k)
+                values.append(v)
+            padded_kv_caches.append((torch.cat(keys, dim=0), torch.cat(values, dim=0)))
+
+        # 5. Attention mask: (batch, 1, 1, max_cache_len + 1)
+        #    After model concatenates new K/V, total KV length = max_cache_len + 1.
+        #    Mask padding positions between each request's actual cache end and max_cache_len.
+        total_kv_len = max_cache_len + 1
+        attn_mask = torch.zeros(
+            (batch_size, 1, 1, total_kv_len), dtype=self.dtype, device=self.device,
+        )
+        for i, cl in enumerate(cache_lens):
+            if cl < max_cache_len:
+                attn_mask[i, 0, 0, cl:max_cache_len] = float("-inf")
+
+        # 6. Batched forward pass
+        logits, new_kv_caches = self.model(
+            input_ids, position_ids, kv_caches=padded_kv_caches, attention_mask=attn_mask,
+        )
+
+        # 7. Extract per-request KV caches (strip padding from the middle)
+        for req_idx, req in enumerate(requests):
+            L = cache_lens[req_idx]
+            req_kv: list[tuple[torch.Tensor, torch.Tensor]] = []
+            for layer_idx in range(num_layers):
+                k, v = new_kv_caches[layer_idx]
+                # k: (batch, kv_heads, max_cache_len+1, head_dim)
+                # Keep [:L] (old actual) + [-1:] (new token), skip padding
+                old_k = k[req_idx : req_idx + 1, :, :L, :]
+                new_k = k[req_idx : req_idx + 1, :, -1:, :]
+                old_v = v[req_idx : req_idx + 1, :, :L, :]
+                new_v = v[req_idx : req_idx + 1, :, -1:, :]
+                req_kv.append((
+                    torch.cat([old_k, new_k], dim=2),
+                    torch.cat([old_v, new_v], dim=2),
+                ))
+            req.kv_cache = req_kv
+
+        # 8. Sample per request
+        token_ids: list[int] = []
+        for i, req in enumerate(requests):
+            token_id = sample_token(
+                logits[i : i + 1, -1, :], req.sampling_params, req.output_ids,
+            )
+            token_ids.append(token_id)
+
+        return token_ids
 
     def is_stop_token(self, token_id: int) -> bool:
         return token_id in self.stop_token_ids

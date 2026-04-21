@@ -101,35 +101,58 @@ class Scheduler:
 
     def step(self) -> list[Request]:
         """
-        One scheduling iteration — maximally naive.
+        One scheduling iteration with continuous batching.
 
-        Takes one request from the waiting queue, prefills it, and decodes
-        it to completion before moving on to the next request.  No batching,
-        no interleaving.
+        Phase 1: Admit waiting requests up to max_running and prefill each
+                 one individually.
+        Phase 2: Batched decode ALL running requests (including those just
+                 prefilled) in a single forward pass.
+        Phase 3: Retire finished requests — their slots are immediately
+                 available on the next step().
 
         Returns list of requests that finished in this step.
         """
         finished: list[Request] = []
 
-        # ── Pick one request ────────────────────────────────────────────
+        # ── Phase 1: Admit & prefill new requests ───────────────────────
         with self._lock:
-            if not self.waiting:
-                return finished
-            req = self.waiting.popleft()
+            while self.waiting and len(self.running) < self.max_running:
+                req = self.waiting.popleft()
+                req.status = RequestStatus.RUNNING
+                self.running.append(req)
 
-        # ── Prefill ─────────────────────────────────────────────────────
-        req.status = RequestStatus.RUNNING
-        token_id = self.engine.prefill(req)
-        req.output_ids.append(token_id)
-        self._stream_token(req, token_id)
+                # Prefill individually (variable prompt lengths)
+                token_id = self.engine.prefill(req)
+                req.output_ids.append(token_id)
+                self._stream_token(req, token_id)
 
-        # ── Decode until finished ───────────────────────────────────────
-        while not self._check_finished(req, token_id):
-            token_id = self.engine.decode_step(req)
+        # Remove any requests that finished during prefill (e.g. stop token)
+        still_running: list[Request] = []
+        for req in self.running:
+            if self._check_finished(req, req.output_ids[-1]):
+                self._finish_request(req, finished)
+            else:
+                still_running.append(req)
+        self.running = still_running
+
+        if not self.running:
+            return finished
+
+        # ── Phase 2: Batched decode all running requests ────────────────
+        token_ids = self.engine.batched_decode(self.running)
+        for req, token_id in zip(self.running, token_ids):
             req.output_ids.append(token_id)
             self._stream_token(req, token_id)
 
-        self._finish_request(req, finished)
+        # ── Phase 3: Retire finished requests ───────────────────────────
+        still_running = []
+        for req in self.running:
+            if self._check_finished(req, req.output_ids[-1]):
+                self._finish_request(req, finished)
+            else:
+                still_running.append(req)
+        self.running = still_running
+
         return finished
 
     # ── Helpers ─────────────────────────────────────────────────────────
@@ -157,7 +180,8 @@ class Scheduler:
         self.total_finished += 1
         self.total_generated_tokens += req.num_output_tokens
         logger.info(
-            "Finished request %s  (output_len=%d, running=%d, waiting=%d)",
+            "Finished request #%d %s  (output_len=%d, running=%d, waiting=%d)",
+            self.total_finished,
             req.request_id,
             req.num_output_tokens,
             len(self.running),
