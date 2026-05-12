@@ -55,7 +55,16 @@ class Request:
     arrival_time: float = field(default_factory=time.time)
 
     # Per-request KV cache (set by Engine during prefill, updated on each decode)
+    # Used by baseline / batched modes — list[(K, V)] per layer.
     kv_cache: Any = None
+
+    # ── Paged-mode state (milestone 2) ────────────────────────────────
+    # page_table: indices into KVMemoryPool's per-layer (K, V) tensors.
+    # cache_len:  current logical KV length (number of tokens whose K/V
+    #             have already been written into the pool). Set after
+    #             prefill, incremented after each decode step.
+    page_table: list[int] | None = None
+    cache_len: int = 0
 
     # Streaming output channel — scheduler pushes, server consumes
     token_queue: queue.Queue = field(default_factory=queue.Queue)

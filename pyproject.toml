@@ -23,6 +23,12 @@ bench = [
     "numpy",
     "tqdm",
 ]
+paged = [
+    # flash-attn must be installed with --no-build-isolation against your
+    # system's torch+CUDA. Listed here for documentation; install via:
+    #   pip install flash-attn>=2.5.0 --no-build-isolation
+    "flash-attn>=2.5.0",
+]
 
 [project.scripts]
 miniengine = "miniengine.__main__:main"

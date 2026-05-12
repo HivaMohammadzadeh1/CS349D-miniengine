@@ -152,7 +152,7 @@ def prepare_requests(
             messages = [{"role": "user", "content": truncated_text}]
             actual_input_len = req_input_len
         elif len(ids) < req_input_len:
-            # Pad by repeating the prompt
+            # Pad by adding filler in bulk rather than one sentence at a time
             filler = " The quick brown fox jumps over the lazy dog."
             padded = raw_prompt
             while True:

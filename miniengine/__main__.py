@@ -46,9 +46,52 @@ def parse_args() -> argparse.Namespace:
         "--mode",
         type=str,
         default="batched",
-        choices=["baseline", "batched"],
-        help="Scheduling mode: baseline (one request at a time) or "
-        "batched (iteration-level batching, milestone 1)",
+        choices=["baseline", "batched", "paged"],
+        help="Scheduling mode: baseline (one request at a time), "
+        "batched (iteration-level batching, milestone 1), or "
+        "paged (paged KV pool + flash-attn paged attention, milestone 2)",
+    )
+    # ── Milestone 2 flags (only meaningful when --mode paged) ────────────
+    p.add_argument(
+        "--mem-fraction-static",
+        type=float,
+        default=0.85,
+        help="Fraction of total GPU memory to pre-allocate for static "
+        "tensors (model weights + KV pool). Pool capacity is derived from "
+        "what's left after weights.",
+    )
+    p.add_argument(
+        "--page-size",
+        type=int,
+        default=32,
+        help="Tokens per KV page. Smaller = less tail-fragmentation, "
+        "bigger page tables; larger = the opposite.",
+    )
+    p.add_argument(
+        "--torch-compile",
+        action="store_true",
+        help="torch.compile the per-layer MLP (stable shapes, "
+        "dynamic batch). Targets ~10%% speedup on decode.",
+    )
+    p.add_argument(
+        "--cuda-graph",
+        action="store_true",
+        help="(Extra credit) Capture paged decode as CUDA graphs at the "
+        "configured bucket batch sizes. Implies --torch-compile in "
+        "non-cudagraph mode (compiled kernels are wrapped by the manual graph).",
+    )
+    p.add_argument(
+        "--cuda-graph-batch-sizes",
+        type=str,
+        default="1,2,4,8,16,32",
+        help="Comma-separated bucket batch sizes for --cuda-graph.",
+    )
+    p.add_argument(
+        "--cuda-graph-max-blocks",
+        type=int,
+        default=256,
+        help="Max page-table length per request supported by the captured "
+        "graphs. Bound on prompt+output length / page-size.",
     )
     return p.parse_args()
 
@@ -71,8 +114,30 @@ def main() -> None:
         args.mode,
     )
 
+    cuda_graph_batch_sizes = [
+        int(s.strip()) for s in args.cuda_graph_batch_sizes.split(",") if s.strip()
+    ]
+    if args.cuda_graph and args.mode != "paged":
+        logger.warning(
+            "--cuda-graph only applies to --mode paged; ignoring."
+        )
+    if args.cuda_graph and not args.torch_compile:
+        logger.info(
+            "--cuda-graph implicitly enables --torch-compile (compiled "
+            "kernels are captured inside the manual graph)."
+        )
+
     engine = Engine(
-        model_path=args.model, dtype=dtype, device=args.device, mode=args.mode
+        model_path=args.model,
+        dtype=dtype,
+        device=args.device,
+        mode=args.mode,
+        page_size=args.page_size,
+        mem_fraction_static=args.mem_fraction_static,
+        torch_compile=args.torch_compile or (args.cuda_graph and args.mode == "paged"),
+        cuda_graph=args.cuda_graph and args.mode == "paged",
+        cuda_graph_batch_sizes=cuda_graph_batch_sizes,
+        cuda_graph_max_blocks=args.cuda_graph_max_blocks,
     )
     sched = Scheduler(engine=engine, max_running=args.max_running, mode=args.mode)
 

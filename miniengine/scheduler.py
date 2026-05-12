@@ -111,6 +111,8 @@ class Scheduler:
         """
         if self.mode == "baseline":
             return self._step_baseline()
+        if self.mode == "paged":
+            return self._step_paged()
         return self._step_batched()
 
     def _step_baseline(self) -> list[Request]:
@@ -118,9 +120,10 @@ class Scheduler:
         finished: list[Request] = []
 
         with self._lock:
-            if not self.waiting:
-                return finished
-            req = self.waiting.popleft()
+            while self.waiting and len(self.running) < self.max_running:
+                req = self.waiting.popleft()
+                req.status = RequestStatus.RUNNING
+                self.running.append(req)
 
         req.status = RequestStatus.RUNNING
         token_id = self.engine.prefill(req)
@@ -132,7 +135,15 @@ class Scheduler:
             req.output_ids.append(token_id)
             self._stream_token(req, token_id)
 
-        self._finish_request(req, finished)
+        # ── Phase 3: Retire finished requests ───────────────────────────
+        still_running = []
+        for req in self.running:
+            if self._check_finished(req, req.output_ids[-1]):
+                self._finish_request(req, finished)
+            else:
+                still_running.append(req)
+        self.running = still_running
+
         return finished
 
     def _step_batched(self) -> list[Request]:
@@ -177,6 +188,67 @@ class Scheduler:
 
         return finished
 
+    def _step_paged(self) -> list[Request]:
+        """
+        Paged + flash-attn step (milestone 2):
+          Phase 1 — admit waiting requests until either max_running or the
+                    pool's free pages are exhausted.
+          Phase 2 — packed prefill on the admitted set.
+          Phase 3 — paged batched decode on all running requests (newly
+                    prefilled requests join in the same step).
+        """
+        finished: list[Request] = []
+        engine = self.engine
+        pool = engine.kv_pool
+        assert pool is not None, "paged mode requires engine.kv_pool"
+
+        # ── Phase 1: admit ─────────────────────────────────────────────
+        with self._lock:
+            to_prefill: list[Request] = []
+            free_pages = pool.num_free
+            while (
+                self.waiting
+                and len(self.running) + len(to_prefill) < self.max_running
+            ):
+                req = self.waiting[0]
+                worst_case = req.num_input_tokens + req.sampling_params.max_new_tokens
+                need = pool.pages_needed(worst_case)
+                if need > free_pages:
+                    break  # defer — not enough pages right now
+                self.waiting.popleft()
+                to_prefill.append(req)
+                free_pages -= need
+
+        # ── Phase 2: packed prefill ────────────────────────────────────
+        if to_prefill:
+            for req in to_prefill:
+                req.status = RequestStatus.RUNNING
+            token_ids = engine.paged_prefill_batch(to_prefill)
+            for req, tok in zip(to_prefill, token_ids):
+                req.output_ids.append(tok)
+                self._stream_token(req, tok)
+                if self._check_finished(req, tok):
+                    engine.free_paged_request(req)
+                    self._finish_request(req, finished)
+                else:
+                    self.running.append(req)
+
+        # ── Phase 3: paged decode for all running ──────────────────────
+        if self.running:
+            token_ids = engine.paged_decode_step(self.running)
+            still_running: list[Request] = []
+            for req, tok in zip(self.running, token_ids):
+                req.output_ids.append(tok)
+                self._stream_token(req, tok)
+                if self._check_finished(req, tok):
+                    engine.free_paged_request(req)
+                    self._finish_request(req, finished)
+                else:
+                    still_running.append(req)
+            self.running = still_running
+
+        return finished
+
     # ── Helpers ─────────────────────────────────────────────────────────
 
     def _check_finished(self, req: Request, token_id: int) -> bool:
@@ -204,7 +276,8 @@ class Scheduler:
         self.total_finished += 1
         self.total_generated_tokens += req.num_output_tokens
         logger.info(
-            "Finished request %s  (output_len=%d, running=%d, waiting=%d)",
+            "Finished request #%d %s  (output_len=%d, running=%d, waiting=%d)",
+            self.total_finished,
             req.request_id,
             req.num_output_tokens,
             len(self.running),
