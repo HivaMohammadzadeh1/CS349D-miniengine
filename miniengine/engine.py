@@ -28,9 +28,10 @@ from transformers import AutoTokenizer
 
 from miniengine.core import Request
 from miniengine.cuda_graph_runner import CudaGraphRunner
-from miniengine.kv_memory_pool import KVMemoryPool
+from miniengine.kv_memory_pool import KVMemoryPool, KVOutOfMemory
 from miniengine.model import CausalLM, ModelConfig, load_weights
 from miniengine.paged_model import PagedCausalLM
+from miniengine.radix_cache import RadixCache
 from miniengine.sampler import sample_token
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ class Engine:
         cuda_graph: bool = False,
         cuda_graph_batch_sizes: list[int] | None = None,
         cuda_graph_max_blocks: int = 256,
+        disable_radix_cache: bool = False,
     ):
         self.device = device
         self.dtype = dtype
@@ -61,7 +63,9 @@ class Engine:
         self.cuda_graph_enabled = cuda_graph
         self.cuda_graph_batch_sizes = cuda_graph_batch_sizes or [1, 2, 4, 8, 16, 32]
         self.cuda_graph_max_blocks = cuda_graph_max_blocks
+        self.disable_radix_cache = disable_radix_cache
         self.kv_pool: KVMemoryPool | None = None
+        self.radix_cache: RadixCache | None = None
         self.cuda_graph_runner: CudaGraphRunner | None = None
         self.scratch_page_idx: int | None = None
 
@@ -130,6 +134,14 @@ class Engine:
                 budget / 1e9,
                 self.kv_pool.num_free,
             )
+
+            # Milestone 3: attach radix cache (unless explicitly disabled).
+            if not self.disable_radix_cache:
+                self.radix_cache = RadixCache(self.kv_pool)
+                self.kv_pool.attach_cache(self.radix_cache)
+                logger.info("Radix prefix cache enabled.")
+            else:
+                logger.info("Radix prefix cache DISABLED (--disable-radix-cache).")
 
             if self.torch_compile_enabled:
                 # Compile the DECODE-path MLP only — stable shape per
@@ -381,20 +393,85 @@ class Engine:
 
     # ── Paged forward passes (milestone 2) ──────────────────────────────
 
+    @property
+    def pool(self) -> KVMemoryPool | None:
+        """Alias for ``kv_pool`` — server.py and bench utilities use this name."""
+        return self.kv_pool
+
     def _slot_for(self, page_idx: int, slot_in_page: int) -> int:
         """Compute the flat slot index in the pool's per-layer K/V tensor."""
         return page_idx * self.page_size + slot_in_page
+
+    # ── Prefill setup (cache lookup + lazy prompt-page alloc) ──────────
+
+    def _setup_paged_request(self, req: Request) -> int:
+        """Per-request bookkeeping run once at prefill start (milestone 3).
+
+        * If a radix cache is attached, look up the longest page-aligned
+          prefix of ``req.input_ids``. The matched pages are pinned (lock-ref
+          ++) and reused as the head of the request's page_table — no need
+          to recompute or rewrite their K/V.
+        * Allocate pool pages only for the *uncached* portion of the prompt.
+          No reservation for ``max_new_tokens`` (lazy alloc — decode appends
+          pages as ``cache_len`` crosses page boundaries).
+        * Record ``cache_hit_tokens`` for the per-request usage block.
+
+        On ``KVOutOfMemory`` the function unwinds (drops the lock ref it
+        just took, clears ``matched_node``/``cache_hit_tokens``) so the
+        caller sees the request in its pre-call state and can re-queue it.
+
+        Returns ``matched_tokens`` (0 if no cache hit / cache disabled).
+        """
+        assert self.kv_pool is not None
+        matched_pages: list[int] = []
+        matched_tokens = 0
+        if self.radix_cache is not None:
+            match = self.radix_cache.match_prefix(req.input_ids)
+            matched_pages = list(match.matched_pages)
+            matched_tokens = match.matched_tokens
+            self.radix_cache.inc_lock_ref(match.last_node)
+            req.matched_node = match.last_node
+
+        req.cache_hit_tokens = matched_tokens
+        remaining_prompt = req.num_input_tokens - matched_tokens
+        n_new_pages = self.kv_pool.pages_needed(remaining_prompt)
+        try:
+            new_pages = (
+                self.kv_pool.allocate(n_new_pages) if n_new_pages > 0 else []
+            )
+        except KVOutOfMemory:
+            # Unwind the lock we just took before re-raising so caller can
+            # safely re-queue this request without leaking a pin.
+            if self.radix_cache is not None and req.matched_node is not None:
+                self.radix_cache.dec_lock_ref(req.matched_node)
+                req.matched_node = None
+            req.cache_hit_tokens = 0
+            raise
+
+        req.page_table = matched_pages + new_pages
+        req.cache_len = matched_tokens
+        req.prefill_offset = matched_tokens
+        return matched_tokens
+
+    def _ensure_decode_page(self, req: Request) -> None:
+        """Lazy-alloc one more page if the next decode-token slot is out
+        of range. Raises ``KVOutOfMemory`` if the pool can't grow.
+        """
+        next_slot_page = req.cache_len // self.page_size
+        while next_slot_page >= len(req.page_table):
+            new_page = self.kv_pool.allocate(1)[0]
+            req.page_table.append(new_page)
 
     @torch.inference_mode()
     def paged_prefill_batch(self, requests: list[Request]) -> list[int]:
         """
         Packed prefill of N requests in a single forward pass.
 
-        For each request: allocates worst-case pages (prompt_len + max_new_tokens)
-        from the pool, sets request.page_table, writes K/V into the pool, and
-        samples the first generated token.
-
-        Returns the first generated token id for each request.
+        Lazy-alloc: only allocates pages for the prompt (decode appends).
+        Cache-aware: uses block_table + cu_seqlens_k so cache-hit prefixes
+        are read straight from the pool — only the uncached suffix gets a
+        forward pass. When no requests hit the cache, this degrades to a
+        full-prompt packed varlen prefill.
         """
         assert self.kv_pool is not None, "paged_prefill_batch requires --mode paged"
         if not requests:
@@ -402,65 +479,238 @@ class Engine:
 
         page_size = self.page_size
 
-        # ── Allocate pages (worst-case) and reserve page-table slots ───
-        for req in requests:
-            worst_case = req.num_input_tokens + req.sampling_params.max_new_tokens
-            n_pages = self.kv_pool.pages_needed(worst_case)
-            req.page_table = self.kv_pool.allocate(n_pages)
-            req.cache_len = 0  # will become prompt_len after this prefill
+        # ── 1. Cache lookup + lazy prompt-page allocation ─────────────
+        # If any request's allocation fails, unwind the earlier ones so
+        # the scheduler can re-queue the batch with consistent state.
+        setups_completed: list[Request] = []
+        try:
+            for req in requests:
+                self._setup_paged_request(req)
+                setups_completed.append(req)
+        except KVOutOfMemory:
+            for r in setups_completed:
+                self.retract_paged_request(r)
+            raise
 
-        # ── Build packed tensors ───────────────────────────────────────
-        seq_lens = [req.num_input_tokens for req in requests]
-        total_tokens = sum(seq_lens)
-        max_seqlen = max(seq_lens)
+        # If every request hits the cache fully (matched_tokens == prompt_len),
+        # there's nothing to prefill — we still need a logits pass over the
+        # last token to sample the first generated token, so we fall through.
+
+        # ── 2. Build packed tensors over the UNCACHED suffix of each req ──
+        seq_lens_full = [req.num_input_tokens for req in requests]   # prompt length
+        seq_lens_q = [
+            max(1, req.num_input_tokens - req.prefill_offset)
+            for req in requests
+        ]
+        # Edge case: full cache hit. We still need 1 query token at the
+        # last prompt position to get the logits. We "redo" only that last
+        # token's forward pass — its K/V will overwrite the cached page slot
+        # which is fine because the K/V is identical (same input, same RoPE).
+        offsets = [
+            req.prefill_offset if req.prefill_offset < req.num_input_tokens
+            else req.num_input_tokens - 1
+            for req in requests
+        ]
 
         packed_ids: list[int] = []
         packed_pos: list[int] = []
         slot_mapping_list: list[int] = []
-        cu_seqlens_list = [0]
+        cu_seqlens_q_list = [0]
+        cu_seqlens_k_list = [0]
         last_token_indices_list: list[int] = []
-        cumulative = 0
+        cumulative_q = 0
 
-        for req, L in zip(requests, seq_lens):
-            packed_ids.extend(req.input_ids)
-            packed_pos.extend(range(L))
-            for t in range(L):
+        for req, full_len, off in zip(requests, seq_lens_full, offsets):
+            # q tokens: input_ids[off : full_len]
+            for t in range(off, full_len):
+                packed_ids.append(req.input_ids[t])
+                packed_pos.append(t)
                 page_idx = req.page_table[t // page_size]
                 slot_in_page = t % page_size
                 slot_mapping_list.append(self._slot_for(page_idx, slot_in_page))
-            cumulative += L
-            cu_seqlens_list.append(cumulative)
-            last_token_indices_list.append(cumulative - 1)
+            q_len = full_len - off
+            cumulative_q += q_len
+            cu_seqlens_q_list.append(cumulative_q)
+            # k spans the FULL prompt (0..full_len) for this request.
+            cu_seqlens_k_list.append(cu_seqlens_k_list[-1] + full_len)
+            last_token_indices_list.append(cumulative_q - 1)
+
+        max_seqlen_q = max(seq_lens_q)
+        max_seqlen_k = max(seq_lens_full)
+        max_blocks = max(len(req.page_table) for req in requests)
 
         input_ids = torch.tensor(packed_ids, dtype=torch.long, device=self.device)
         position_ids = torch.tensor(packed_pos, dtype=torch.long, device=self.device)
-        cu_seqlens = torch.tensor(cu_seqlens_list, dtype=torch.int32, device=self.device)
+        cu_seqlens_q = torch.tensor(cu_seqlens_q_list, dtype=torch.int32, device=self.device)
+        cu_seqlens_k = torch.tensor(cu_seqlens_k_list, dtype=torch.int32, device=self.device)
         slot_mapping = torch.tensor(slot_mapping_list, dtype=torch.long, device=self.device)
         last_token_indices = torch.tensor(
             last_token_indices_list, dtype=torch.long, device=self.device
         )
 
-        logits = self.model.prefill(
+        block_table = torch.zeros(
+            (len(requests), max_blocks), dtype=torch.int32, device=self.device
+        )
+        for i, req in enumerate(requests):
+            pt = req.page_table
+            block_table[i, : len(pt)] = torch.tensor(
+                pt, dtype=torch.int32, device=self.device
+            )
+
+        # ── 3. Forward pass ──────────────────────────────────────────
+        logits = self.model.prefill_chunked(
             input_ids=input_ids,
             position_ids=position_ids,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+            max_seqlen_q=max_seqlen_q,
+            max_seqlen_k=max_seqlen_k,
             slot_mapping=slot_mapping,
+            block_table=block_table,
             last_token_indices=last_token_indices,
             kv_pool=self.kv_pool,
         )  # (batch, vocab)
 
-        # ── Sample first token, advance cache_len ──────────────────────
+        # ── 4. Sample first token; advance state; insert prefix into cache ─
         token_ids: list[int] = []
-        for i, (req, L) in enumerate(zip(requests, seq_lens)):
+        for i, (req, L) in enumerate(zip(requests, seq_lens_full)):
             req.cache_len = L
-            tok = sample_token(logits[i : i + 1, :], req.sampling_params, req.output_ids)
+            req.prefill_offset = L
+            tok = sample_token(
+                logits[i : i + 1, :], req.sampling_params, req.output_ids
+            )
             token_ids.append(tok)
+
+        # Insert prompt-aligned prefix into the radix cache so subsequent
+        # requests can hit it. We do this AFTER all requests in the batch
+        # have completed prefill so concurrent batchmates don't fight over
+        # who owns the prefix.
+        self._insert_prompt_into_cache(requests)
+
         return token_ids
 
     @torch.inference_mode()
+    def paged_prefill_chunk(self, req: Request, chunk_size: int) -> int | None:
+        """One chunked-prefill step for a single request.
+
+        Returns the first generated token on the LAST chunk, ``None``
+        otherwise. The caller is expected to have called
+        ``_setup_paged_request(req)`` previously (e.g. via
+        ``start_paged_prefill``), so ``req.page_table``,
+        ``req.prefill_offset``, and ``req.cache_len`` are already wired up.
+        """
+        assert self.kv_pool is not None
+        assert chunk_size > 0
+
+        page_size = self.page_size
+        off = req.prefill_offset
+        full_len = req.num_input_tokens
+        if off >= full_len:
+            # Already done. Should not happen in normal scheduler flow.
+            return None
+
+        # Edge: cache-hit-only request. We must still run 1 forward pass
+        # over the last prompt token to obtain logits for the first sample.
+        if off == full_len - 0:  # never true; placeholder to keep symmetry
+            pass
+
+        end = min(off + chunk_size, full_len)
+        is_final = end == full_len
+
+        # Build packed tensors (single request, B=1).
+        packed_ids: list[int] = list(req.input_ids[off:end])
+        packed_pos: list[int] = list(range(off, end))
+        slot_mapping_list: list[int] = []
+        for t in range(off, end):
+            page_idx = req.page_table[t // page_size]
+            slot_in_page = t % page_size
+            slot_mapping_list.append(self._slot_for(page_idx, slot_in_page))
+
+        q_len = end - off
+        cu_seqlens_q = torch.tensor([0, q_len], dtype=torch.int32, device=self.device)
+        cu_seqlens_k = torch.tensor([0, end], dtype=torch.int32, device=self.device)
+        input_ids = torch.tensor(packed_ids, dtype=torch.long, device=self.device)
+        position_ids = torch.tensor(packed_pos, dtype=torch.long, device=self.device)
+        slot_mapping = torch.tensor(slot_mapping_list, dtype=torch.long, device=self.device)
+        block_table = torch.tensor(
+            [req.page_table], dtype=torch.int32, device=self.device
+        )
+
+        last_token_indices = (
+            torch.tensor([q_len - 1], dtype=torch.long, device=self.device)
+            if is_final
+            else None
+        )
+
+        result = self.model.prefill_chunked(
+            input_ids=input_ids,
+            position_ids=position_ids,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+            max_seqlen_q=q_len,
+            max_seqlen_k=end,
+            slot_mapping=slot_mapping,
+            block_table=block_table,
+            last_token_indices=last_token_indices,
+            kv_pool=self.kv_pool,
+        )
+
+        req.prefill_offset = end
+        req.cache_len = end
+
+        if not is_final:
+            return None
+
+        # Final chunk: result is (1, vocab).
+        tok = sample_token(result[0:1, :], req.sampling_params, req.output_ids)
+        # Now that the prompt is fully prefilled, insert into the cache.
+        self._insert_prompt_into_cache([req])
+        return tok
+
+    def start_paged_prefill(self, req: Request) -> int:
+        """Set up a chunked prefill: cache lookup, allocate prompt pages.
+
+        Returns the number of cache-hit tokens (also stored on the request).
+        After this call, the caller should drive
+        ``paged_prefill_chunk(req, chunk_size)`` repeatedly until it returns
+        a non-None token (the first generated token).
+        """
+        return self._setup_paged_request(req)
+
+    def _insert_prompt_into_cache(self, requests: list[Request]) -> None:
+        """Insert the page-aligned prefix of each request's prompt into the
+        radix cache and free any redundant pages back to the pool."""
+        if self.radix_cache is None:
+            return
+        ps = self.page_size
+        for req in requests:
+            aligned = req.num_input_tokens - (req.num_input_tokens % ps)
+            if aligned == 0:
+                continue
+            n_pages = aligned // ps
+            prefix_tokens = req.input_ids[:aligned]
+            prefix_pages = req.page_table[:n_pages]
+            _leaf, redundant = self.radix_cache.insert_and_return(
+                prefix_tokens, prefix_pages
+            )
+            if redundant:
+                # Another concurrent request beat us to caching this prefix.
+                # The cache's pages win; ours go back to the pool. We do NOT
+                # rewrite req.page_table — both copies contain the same K/V
+                # (deterministic forward), so the request can keep decoding
+                # against its own pages until it finishes.
+                self.kv_pool.free(redundant)
+
+    @torch.inference_mode()
     def paged_decode_step(self, requests: list[Request]) -> list[int]:
-        """One decode step for a batch of running requests using paged KV."""
+        """One decode step for a batch of running requests using paged KV.
+
+        Lazy-alloc (milestone 3): each request grows its page_table by one
+        page when ``cache_len`` is about to cross a page boundary. This
+        avoids reserving worst-case ``max_new_tokens`` pages at prefill,
+        making the cache effective, but means the call may raise
+        ``KVOutOfMemory`` mid-step. The scheduler catches that and retracts.
+        """
         assert self.kv_pool is not None, "paged_decode_step requires --mode paged"
         if not requests:
             return []
@@ -468,8 +718,12 @@ class Engine:
         page_size = self.page_size
         batch_size = len(requests)
 
-        # Page tables have already been allocated for the worst case at
-        # prefill time, so no per-step allocation is needed here.
+        # Lazy allocation: grow the page_table of any request whose next
+        # token slot lands on an unallocated page. This is the only place
+        # decode-time pool pressure can manifest as OOM.
+        for req in requests:
+            self._ensure_decode_page(req)
+
         max_blocks = max(len(req.page_table) for req in requests)
 
         # ── Build per-step tensors ─────────────────────────────────────
@@ -515,12 +769,70 @@ class Engine:
         return token_ids
 
     def free_paged_request(self, req: Request) -> None:
-        """Release a finished request's pages back to the pool."""
+        """Release a finished request's resources.
+
+        Cache-aware (milestone 3):
+          * Decrement the lock-ref on the matched node (the cached prefix
+            this request was borrowing).
+          * Insert the request's full sequence (prompt + output) into the
+            radix cache at page-aligned granularity so future multi-turn
+            requests can hit on the assistant response.
+          * Free pages that turn out to be redundant (after insert) and the
+            unaligned tail back to the pool.
+        """
         if self.kv_pool is None or req.page_table is None:
             return
-        self.kv_pool.free(req.page_table)
+
+        if self.radix_cache is not None and req.matched_node is not None:
+            self.radix_cache.dec_lock_ref(req.matched_node)
+            req.matched_node = None
+
+        ps = self.page_size
+        if self.radix_cache is not None:
+            full_tokens = req.input_ids + req.output_ids
+            aligned = len(full_tokens) - (len(full_tokens) % ps)
+            if aligned > 0:
+                full_pages = req.page_table[: aligned // ps]
+                _leaf, redundant = self.radix_cache.insert_and_return(
+                    full_tokens[:aligned], full_pages
+                )
+                if redundant:
+                    self.kv_pool.free(redundant)
+                # Unaligned tail (partial last page) can't be cached.
+                tail_pages = req.page_table[aligned // ps :]
+                if tail_pages:
+                    self.kv_pool.free(tail_pages)
+            else:
+                # No page-aligned content (shouldn't happen with non-empty
+                # prompt, but defend) — just dump everything back.
+                self.kv_pool.free(req.page_table)
+        else:
+            self.kv_pool.free(req.page_table)
+
         req.page_table = None
         req.cache_len = 0
+        req.prefill_offset = 0
+
+    def retract_paged_request(self, req: Request) -> None:
+        """Free a victim's pages without caching its (partial, in-flight)
+        output. Used by the scheduler's retraction loop *and* by
+        ``paged_prefill_batch`` to unwind partially-set-up admissions on
+        mid-batch ``KVOutOfMemory``.
+        """
+        # Always drop the lock-ref first — works even if page_table is
+        # None (setup failed before alloc).
+        if self.radix_cache is not None and req.matched_node is not None:
+            self.radix_cache.dec_lock_ref(req.matched_node)
+            req.matched_node = None
+        if self.kv_pool is not None and req.page_table is not None:
+            # Note: we do not insert anything into the cache — the request
+            # didn't finish, so its output isn't authoritative. Pages just
+            # return to the pool.
+            self.kv_pool.free(req.page_table)
+        req.page_table = None
+        req.cache_len = 0
+        req.prefill_offset = 0
+        req.cache_hit_tokens = 0
 
     def is_stop_token(self, token_id: int) -> bool:
         return token_id in self.stop_token_ids

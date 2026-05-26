@@ -171,6 +171,71 @@ class PagedAttention(nn.Module):
         out = out.reshape(T, self.num_heads * self.head_dim)
         return self.o_proj(out)
 
+    # ── Chunked / prefix-attention prefill (milestone 3) ───────────────
+
+    def forward_prefill_chunked(
+        self,
+        hidden: torch.Tensor,            # (T, hidden) — T = chunk's q tokens
+        cos: torch.Tensor,               # (T, head_dim)
+        sin: torch.Tensor,               # (T, head_dim)
+        cu_seqlens_q: torch.Tensor,      # (B+1,) int32 — chunk lengths
+        cu_seqlens_k: torch.Tensor,      # (B+1,) int32 — full lengths (cached prefix + so-far)
+        max_seqlen_q: int,
+        max_seqlen_k: int,
+        slot_mapping: torch.Tensor,      # (T,) int64 — flat pool slots for new K/V
+        block_table: torch.Tensor,       # (B, max_blocks) int32 — full page tables
+        kv_pool_layer: tuple[torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
+        """Paged-attention varlen prefill.
+
+        Handles two cases the M2 packed prefill cannot:
+          1. A request's prompt is being processed in chunks; the new chunk
+             must attend back to already-prefilled chunks of the same request
+             that already live in the pool.
+          2. A request hit the radix cache; the new (uncached) suffix must
+             attend back to the cached prefix pages in the pool.
+
+        Mechanism: write the new chunk's K/V into the pool FIRST (via
+        ``slot_mapping``), then call ``flash_attn_varlen_func`` with the
+        full ``cu_seqlens_k`` and ``block_table`` so the kernel reads K/V
+        for the full sequence directly from the pool.
+        """
+        from flash_attn import flash_attn_varlen_func
+
+        T = hidden.shape[0]
+        q = self.q_proj(hidden).view(T, self.num_heads, self.head_dim)
+        k = self.k_proj(hidden).view(T, self.num_kv_heads, self.head_dim)
+        v = self.v_proj(hidden).view(T, self.num_kv_heads, self.head_dim)
+
+        q = self.q_norm(q)
+        k = self.k_norm(k)
+        q = _apply_rope_flat(q, cos, sin)
+        k = _apply_rope_flat(k, cos, sin)
+
+        # Scatter the new chunk's K/V into the pool BEFORE the attention
+        # call — the kernel reads them back via block_table.
+        K_pool, V_pool = kv_pool_layer
+        np_, ps, kh, hd = K_pool.shape
+        K_flat = K_pool.view(np_ * ps, kh, hd)
+        V_flat = V_pool.view(np_ * ps, kh, hd)
+        K_flat[slot_mapping] = k
+        V_flat[slot_mapping] = v
+
+        out = flash_attn_varlen_func(
+            q,
+            K_pool,
+            V_pool,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+            max_seqlen_q=max_seqlen_q,
+            max_seqlen_k=max_seqlen_k,
+            causal=True,
+            block_table=block_table,
+        )  # (T, num_heads, head_dim)
+
+        out = out.reshape(T, self.num_heads * self.head_dim)
+        return self.o_proj(out)
+
     # ── Decode (paged kvcache) ─────────────────────────────────────────
 
     def forward_decode(
@@ -276,6 +341,42 @@ class PagedTransformerBlock(nn.Module):
         hidden = self.mlp(hidden)
         return residual + hidden
 
+    def forward_prefill_chunked(
+        self,
+        hidden,
+        cos,
+        sin,
+        cu_seqlens_q,
+        cu_seqlens_k,
+        max_seqlen_q,
+        max_seqlen_k,
+        slot_mapping,
+        block_table,
+        kv_pool_layer,
+    ):
+        residual = hidden
+        hidden = self.input_layernorm(hidden)
+        hidden = self.self_attn.forward_prefill_chunked(
+            hidden,
+            cos,
+            sin,
+            cu_seqlens_q,
+            cu_seqlens_k,
+            max_seqlen_q,
+            max_seqlen_k,
+            slot_mapping,
+            block_table,
+            kv_pool_layer,
+        )
+        hidden = residual + hidden
+
+        residual = hidden
+        hidden = self.post_attention_layernorm(hidden)
+        # Same eager-MLP choice as forward_prefill: chunk shape varies
+        # batch-to-batch so compiling here would recompile.
+        hidden = self.mlp(hidden)
+        return residual + hidden
+
     def forward_decode(self, hidden, cos, sin, cache_seqlens, block_table, kv_pool_layer):
         residual = hidden
         hidden = self.input_layernorm(hidden)
@@ -320,6 +421,35 @@ class PagedTransformerModel(nn.Module):
             )
         return self.norm(hidden)
 
+    def forward_prefill_chunked(
+        self,
+        input_ids,
+        position_ids,
+        cu_seqlens_q,
+        cu_seqlens_k,
+        max_seqlen_q,
+        max_seqlen_k,
+        slot_mapping,
+        block_table,
+        kv_pool: KVMemoryPool,
+    ):
+        hidden = self.embed_tokens(input_ids)  # (T, hidden)
+        cos, sin = _lookup_rope(self.rotary_emb, position_ids)
+        for i, layer in enumerate(self.layers):
+            hidden = layer.forward_prefill_chunked(
+                hidden,
+                cos,
+                sin,
+                cu_seqlens_q,
+                cu_seqlens_k,
+                max_seqlen_q,
+                max_seqlen_k,
+                slot_mapping,
+                block_table,
+                kv_pool.kv_caches[i],
+            )
+        return self.norm(hidden)
+
     def forward_decode(
         self, input_ids, position_ids, cache_seqlens, block_table, kv_pool: KVMemoryPool,
     ):
@@ -357,6 +487,47 @@ class PagedCausalLM(nn.Module):
         hidden = self.model.forward_prefill(
             input_ids, position_ids, cu_seqlens, max_seqlen, slot_mapping, kv_pool,
         )  # (T, hidden)
+        last_hidden = hidden[last_token_indices]  # (batch, hidden)
+        if self.config.tie_word_embeddings:
+            return F.linear(last_hidden, self.model.embed_tokens.weight)
+        return self.lm_head(last_hidden)
+
+    def prefill_chunked(
+        self,
+        input_ids: torch.Tensor,        # (T,) — packed q tokens for this chunk
+        position_ids: torch.Tensor,     # (T,)
+        cu_seqlens_q: torch.Tensor,     # (B+1,) int32 — chunk lengths
+        cu_seqlens_k: torch.Tensor,     # (B+1,) int32 — full lengths (cached prefix + so-far)
+        max_seqlen_q: int,
+        max_seqlen_k: int,
+        slot_mapping: torch.Tensor,     # (T,) int64
+        block_table: torch.Tensor,      # (B, max_blocks) int32
+        last_token_indices: torch.Tensor | None,
+        kv_pool: KVMemoryPool,
+    ) -> torch.Tensor:
+        """Run a single chunk of paged-attention varlen prefill.
+
+        Returns:
+          - If ``last_token_indices`` is None: hidden states ``(T, hidden)``.
+            Caller invokes this when the chunk isn't the final one and the
+            logits aren't needed (we skip the LM head to save a vocab-size
+            matmul on intermediate chunks).
+          - Else: logits at each request's last token ``(batch, vocab)``.
+            Used on the FINAL chunk to sample the first generated token.
+        """
+        hidden = self.model.forward_prefill_chunked(
+            input_ids,
+            position_ids,
+            cu_seqlens_q,
+            cu_seqlens_k,
+            max_seqlen_q,
+            max_seqlen_k,
+            slot_mapping,
+            block_table,
+            kv_pool,
+        )  # (T, hidden)
+        if last_token_indices is None:
+            return hidden
         last_hidden = hidden[last_token_indices]  # (batch, hidden)
         if self.config.tie_word_embeddings:
             return F.linear(last_hidden, self.model.embed_tokens.weight)

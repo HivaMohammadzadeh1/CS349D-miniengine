@@ -76,6 +76,17 @@ class Request:
     # cache effectiveness.
     cache_hit_tokens: int = 0
 
+    # ── Milestone 3 transient engine/scheduler state ──────────────────
+    # ``matched_node`` is the RadixNode whose lock_ref the engine
+    # incremented at admission; the scheduler decrements it on finish
+    # or retraction. Typed Any here so core.py stays free of cache
+    # imports (avoiding a circular dep).
+    matched_node: Any = None
+    # Chunked-prefill cursor: number of tokens whose K/V have been
+    # written into the pool so far. Initialised to the cache-hit length
+    # at the start of a prefill; advances by chunk_size each step.
+    prefill_offset: int = 0
+
     # ── Derived properties ─────────────────────────────────────────────
 
     @property

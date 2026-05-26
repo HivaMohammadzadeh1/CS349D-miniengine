@@ -93,6 +93,29 @@ def parse_args() -> argparse.Namespace:
         help="Max page-table length per request supported by the captured "
         "graphs. Bound on prompt+output length / page-size.",
     )
+    # ── Milestone 3 flags ────────────────────────────────────────────────
+    p.add_argument(
+        "--prefill-chunk-size",
+        type=int,
+        default=0,
+        help="Per-step prefill q-token budget. 0 disables chunking "
+        "(milestone-2 single-shot path). When > 0, prefill processes one "
+        "chunk per scheduler step; decode of other running requests "
+        "continues in parallel.",
+    )
+    p.add_argument(
+        "--disable-radix-cache",
+        action="store_true",
+        help="Disable the radix prefix cache. Cache is on by default in "
+        "--mode paged (milestone 3 Part B).",
+    )
+    p.add_argument(
+        "--enable-retraction",
+        action="store_true",
+        help="Enable decode-time retraction (milestone 3 bonus). When the "
+        "KV pool runs out mid-decode, the scheduler evicts a victim "
+        "(youngest by arrival time) back to the waiting queue.",
+    )
     return p.parse_args()
 
 
@@ -126,6 +149,19 @@ def main() -> None:
             "--cuda-graph implicitly enables --torch-compile (compiled "
             "kernels are captured inside the manual graph)."
         )
+    if args.mode != "paged":
+        if args.prefill_chunk_size > 0:
+            logger.warning(
+                "--prefill-chunk-size only applies to --mode paged; ignoring."
+            )
+        if args.disable_radix_cache:
+            logger.warning(
+                "--disable-radix-cache only applies to --mode paged; ignoring."
+            )
+        if args.enable_retraction:
+            logger.warning(
+                "--enable-retraction only applies to --mode paged; ignoring."
+            )
 
     engine = Engine(
         model_path=args.model,
@@ -138,8 +174,15 @@ def main() -> None:
         cuda_graph=args.cuda_graph and args.mode == "paged",
         cuda_graph_batch_sizes=cuda_graph_batch_sizes,
         cuda_graph_max_blocks=args.cuda_graph_max_blocks,
+        disable_radix_cache=args.disable_radix_cache,
     )
-    sched = Scheduler(engine=engine, max_running=args.max_running, mode=args.mode)
+    sched = Scheduler(
+        engine=engine,
+        max_running=args.max_running,
+        mode=args.mode,
+        prefill_chunk_size=args.prefill_chunk_size if args.mode == "paged" else 0,
+        enable_retraction=args.enable_retraction and args.mode == "paged",
+    )
 
     # Wire up the server module globals
     srv.engine = engine

@@ -18,13 +18,31 @@ separate tensors (rather than one fused KV tensor) for the same reason:
 flash-attn's API takes them separately.
 
 Free list is a `collections.deque` of free page indices. O(1) pop/push.
+
+Milestone 3 additions
+---------------------
+* Optional ``RadixCache`` integration. When attached, ``allocate`` asks
+  the cache to evict LRU pages before raising on a free-list shortage.
+* ``KVOutOfMemory`` — raised when neither free list nor cache eviction
+  can satisfy an allocation. Caught by the scheduler's retraction loop.
 """
 
 from __future__ import annotations
 
 from collections import deque
+from typing import TYPE_CHECKING
 
 import torch
+
+if TYPE_CHECKING:
+    from miniengine.radix_cache import RadixCache
+
+
+class KVOutOfMemory(RuntimeError):
+    """Raised by ``KVMemoryPool.allocate`` when no pages are available
+    even after cache eviction. The scheduler catches this and retracts a
+    running request back to the waiting queue (milestone 3 bonus).
+    """
 
 
 class KVMemoryPool:
@@ -66,13 +84,34 @@ class KVMemoryPool:
         # Initial free list: every page is free.
         self._free: deque[int] = deque(range(num_pages))
 
+        # ── Milestone 3: optional radix-cache hook ─────────────────────
+        # When attached, ``allocate`` calls ``cache.evict(...)`` before
+        # raising on a free-list shortage. The cache owns pages held in
+        # its tree (they are NOT in self._free).
+        self.cache: "RadixCache | None" = None
+
     # ── Allocation API ──────────────────────────────────────────────────
 
+    def attach_cache(self, cache: "RadixCache") -> None:
+        """Wire a radix cache for eviction-on-allocate (milestone 3)."""
+        self.cache = cache
+
     def allocate(self, num_pages: int) -> list[int]:
-        """Reserve `num_pages` pages and return their indices."""
-        if num_pages > len(self._free):
-            raise RuntimeError(
-                f"KV pool out of pages: requested {num_pages}, free {len(self._free)}"
+        """Reserve `num_pages` pages and return their indices.
+
+        Raises ``KVOutOfMemory`` if the request cannot be satisfied even
+        after evicting LRU pages from the radix cache (when attached).
+        """
+        if num_pages <= 0:
+            return []
+        if len(self._free) < num_pages and self.cache is not None:
+            need = num_pages - len(self._free)
+            self.cache.evict(need)
+        if len(self._free) < num_pages:
+            evictable = self.cache.num_evictable_pages() if self.cache else 0
+            raise KVOutOfMemory(
+                f"KV pool out of pages: requested {num_pages}, "
+                f"free {len(self._free)}, evictable {evictable}"
             )
         return [self._free.popleft() for _ in range(num_pages)]
 
@@ -91,6 +130,11 @@ class KVMemoryPool:
     def num_free(self) -> int:
         """Pages currently available for allocation."""
         return len(self._free)
+
+    @property
+    def num_evictable(self) -> int:
+        """Pages held by the cache that an LRU sweep could free now."""
+        return self.cache.num_evictable_pages() if self.cache is not None else 0
 
     @property
     def kv_caches(self) -> list[tuple[torch.Tensor, torch.Tensor]]:

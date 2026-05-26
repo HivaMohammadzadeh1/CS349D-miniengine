@@ -2,21 +2,30 @@
 
 Stores already-computed KV pages keyed by token prefix so a new request whose
 prompt starts with a cached prefix can reuse those pages instead of
-recomputing them.  This file is the **skeleton** — fill in the methods marked
-``TODO``.
+recomputing them.
 
 The data structure is a radix tree whose nodes own KV pages from the
 ``KVMemoryPool``.  Pages held by the cache are *not* in the pool's free list;
-they return there only when the cache evicts them (LRU) or when an in-flight
-insert chooses to free a redundant duplicate.
+they return there only when the cache evicts them (LRU) or when an
+``insert_and_return`` call discovers them as duplicates of pages already in
+the tree.
 
-Performance counters in ``CacheMetrics`` are read by the ``/cache_stats``
-endpoint and by the scheduler's per-prefill-batch INFO log line.  Update them
-inside your implementation so those observability hooks light up.
+Invariants
+----------
+* Every node's edge ``key`` is page-aligned: ``len(key) % page_size == 0``
+  and ``len(pages) == len(key) // page_size``.
+* Sibling edges (children of the same node) have unique first tokens — the
+  ``children`` dict is keyed by ``key[0]``.
+* ``ref_count > 0`` on a node means the node *and* every ancestor up to root
+  are pinned against eviction (an in-flight request is borrowing them).
+
+Performance counters in ``CacheMetrics`` are surfaced via ``/cache_stats``.
 """
 
 from __future__ import annotations
 
+import heapq
+import itertools
 import logging
 import time
 from dataclasses import dataclass, field
@@ -46,24 +55,18 @@ class CacheMetrics:
 
 
 class RadixNode:
-    """A radix-tree node.  Design hints — adjust to fit your implementation:
+    """A radix-tree node.
 
-    * ``parent`` / ``children`` form the tree.
-    * ``key`` carries the tokens on the edge from the parent.
-    * ``pages`` are the KV pages corresponding to those tokens; for safety
-      against partial-page sharing, keep ``len(key)`` a multiple of
-      ``page_size`` and ``len(pages) == len(key) // page_size``.
-    * ``ref_count`` should reflect "number of locked leaves in this
-      subtree" so eviction can check a single field.  Manipulated by
-      ``inc_lock_ref`` / ``dec_lock_ref``.
-    * ``last_access`` drives LRU.
+    Edge layout: ``key`` carries the tokens on the edge from the parent;
+    ``pages`` carries the KV pages corresponding to ``key`` (one page per
+    ``page_size`` tokens; both are page-aligned by construction).
     """
 
     __slots__ = ("parent", "children", "key", "pages", "ref_count", "last_access")
 
     def __init__(self) -> None:
         self.parent: RadixNode | None = None
-        self.children: dict = {}
+        self.children: dict[int, "RadixNode"] = {}
         self.key: list[int] = []
         self.pages: list[int] = []
         self.ref_count: int = 0
@@ -82,19 +85,15 @@ class MatchResult:
 
     matched_pages: list[int] = field(default_factory=list)
     matched_tokens: int = 0
-    last_node: RadixNode | None = None
+    last_node: "RadixNode | None" = None
 
 
 class RadixCache:
     """Token-prefix → KV-pages cache backed by a radix tree.
 
-    Required behaviours (see milestone 3 doc):
-      * page-aligned matching — never return a partial-page result
-      * LRU eviction of unlocked subtrees
-      * eviction-on-allocate: ``KVMemoryPool.allocate`` should call
-        ``cache.evict(n)`` when the free list is short
-      * ``inc_lock_ref`` / ``dec_lock_ref`` protect in-flight requests
-        (same names as sglang's radix cache).
+    Page-aligned matching, LRU eviction of unlocked subtrees,
+    eviction-on-allocate via ``KVMemoryPool.allocate``, and sglang-style
+    ``inc_lock_ref`` / ``dec_lock_ref`` pinning for in-flight matches.
     """
 
     def __init__(self, pool: "KVMemoryPool") -> None:
@@ -102,63 +101,281 @@ class RadixCache:
         self.page_size = pool.page_size
         self.root = RadixNode()
         self.metrics = CacheMetrics()
+        self._num_cached_pages = 0
+        # Tie-breaker for heap entries with equal last_access timestamps.
+        self._heap_seq = itertools.count()
+
+    # ── Introspection ──────────────────────────────────────────────────
 
     @property
     def num_cached_pages(self) -> int:
         """Total pages currently held by the tree."""
-        raise NotImplementedError("TODO: track and report")
+        return self._num_cached_pages
 
     def num_evictable_pages(self) -> int:
         """Pages that an LRU sweep could free right now."""
-        raise NotImplementedError("TODO: walk the tree, count unlocked pages")
+        total = 0
+        for node in self._walk():
+            if node is self.root:
+                continue
+            if self._is_evictable(node):
+                total += len(node.pages)
+        return total
+
+    def _walk(self):
+        """Iterate every node in the tree (including root)."""
+        stack = [self.root]
+        while stack:
+            n = stack.pop()
+            yield n
+            stack.extend(n.children.values())
+
+    def _is_evictable(self, node: "RadixNode") -> bool:
+        """A node is evictable when nothing in its subtree is locked."""
+        return node.ref_count == 0 and not node.children
 
     # ── Lookup ─────────────────────────────────────────────────────────
 
     def match_prefix(self, tokens: list[int]) -> MatchResult:
         """Find the longest page-aligned prefix of ``tokens`` in the tree.
 
-        Update ``metrics.total_lookups`` / ``total_query_tokens`` /
-        ``total_hit_tokens`` so the perf counters are accurate.
+        Walks page-by-page: at each level the next child is the one whose
+        ``key[0]`` matches ``tokens[offset]``. Along that child's edge we
+        match in ``page_size`` chunks; if a page's tokens diverge mid-chunk
+        we stop at the last fully-matched page boundary.
         """
-        raise NotImplementedError("TODO: walk the tree page by page")
+        ps = self.page_size
+        self.metrics.total_lookups += 1
+        self.metrics.total_query_tokens += len(tokens)
+
+        matched_pages: list[int] = []
+        matched_tokens = 0
+        node = self.root
+        offset = 0
+        now = time.monotonic()
+
+        while offset + ps <= len(tokens):
+            child = node.children.get(tokens[offset])
+            if child is None:
+                break
+            # Walk this edge in page-aligned chunks. Both child.key and the
+            # incoming tokens are aligned in page_size chunks by invariant.
+            edge_off = 0
+            edge_len = len(child.key)
+            while (
+                edge_off + ps <= edge_len
+                and offset + ps <= len(tokens)
+                and child.key[edge_off : edge_off + ps]
+                == tokens[offset : offset + ps]
+            ):
+                matched_pages.append(child.pages[edge_off // ps])
+                matched_tokens += ps
+                edge_off += ps
+                offset += ps
+
+            if edge_off < edge_len:
+                # Partial edge match — stop at the last full page boundary.
+                # The child stays where it is; no split is necessary on a
+                # pure lookup.
+                node = child
+                break
+
+            # Full edge consumed; descend.
+            child.last_access = now
+            node = child
+
+        self.metrics.total_hit_tokens += matched_tokens
+        return MatchResult(
+            matched_pages=matched_pages,
+            matched_tokens=matched_tokens,
+            last_node=node,
+        )
 
     # ── Lock ref counting (sglang-style) ───────────────────────────────
 
-    def inc_lock_ref(self, node: RadixNode | None) -> None:
+    def inc_lock_ref(self, node: "RadixNode | None") -> None:
         """Lock ``node`` (and the path to root) against eviction."""
-        raise NotImplementedError("TODO: increment ref_count along the path")
+        if node is None:
+            return
+        cur = node
+        while cur is not None and cur is not self.root:
+            cur.ref_count += 1
+            cur = cur.parent
 
-    def dec_lock_ref(self, node: RadixNode | None) -> None:
+    def dec_lock_ref(self, node: "RadixNode | None") -> None:
         """Release a lock.  Refresh ``last_access`` while walking."""
-        raise NotImplementedError("TODO: decrement ref_count along the path")
+        if node is None:
+            return
+        now = time.monotonic()
+        cur = node
+        while cur is not None and cur is not self.root:
+            if cur.ref_count > 0:
+                cur.ref_count -= 1
+            cur.last_access = now
+            cur = cur.parent
 
     # ── Insertion ──────────────────────────────────────────────────────
 
     def insert_and_return(
         self, tokens: list[int], pages: list[int]
-    ) -> tuple[RadixNode, list[int]]:
+    ) -> tuple["RadixNode", list[int]]:
         """Insert (tokens, pages) into the tree.
 
+        Both arguments must be page-aligned:
+            len(tokens) % page_size == 0
+            len(pages) == len(tokens) // page_size
+
         Returns ``(leaf_node, redundant_pages)``: ``redundant_pages`` are
-        pages the caller handed in that were duplicates of pages already
-        cached at the same prefix — the caller should return them to the
-        pool.  Update ``metrics.total_inserted_pages`` to reflect what
-        actually got added.
+        pages the caller handed in that turned out to be duplicates of pages
+        already cached at the same prefix.  The caller should return them to
+        the pool.
         """
-        raise NotImplementedError("TODO: walk down, split at page boundaries")
+        ps = self.page_size
+        if len(tokens) % ps != 0:
+            raise ValueError(
+                f"insert_and_return requires page-aligned tokens; "
+                f"got len={len(tokens)} ps={ps}"
+            )
+        if len(pages) != len(tokens) // ps:
+            raise ValueError(
+                f"insert_and_return: pages/tokens mismatch ({len(pages)} vs "
+                f"{len(tokens) // ps})"
+            )
+
+        redundant: list[int] = []
+        node = self.root
+        offset = 0
+        now = time.monotonic()
+
+        while offset < len(tokens):
+            child = node.children.get(tokens[offset])
+            if child is None:
+                # Fresh edge — append the remainder as a new leaf.
+                new_node = RadixNode()
+                new_node.parent = node
+                new_node.key = list(tokens[offset:])
+                new_node.pages = list(pages[offset // ps :])
+                new_node.last_access = now
+                node.children[tokens[offset]] = new_node
+                self._num_cached_pages += len(new_node.pages)
+                self.metrics.total_inserted_pages += len(new_node.pages)
+                return new_node, redundant
+
+            # Walk the child's edge, page by page.
+            edge_off = 0
+            edge_len = len(child.key)
+            while (
+                edge_off < edge_len
+                and offset < len(tokens)
+                and child.key[edge_off : edge_off + ps]
+                == tokens[offset : offset + ps]
+            ):
+                # Page already cached — caller's copy is redundant.
+                redundant.append(pages[offset // ps])
+                edge_off += ps
+                offset += ps
+
+            if edge_off == edge_len:
+                # Full edge consumed and matched; descend.
+                child.last_access = now
+                node = child
+                continue
+
+            # Mismatch mid-edge at a page boundary — split.
+            split = RadixNode()
+            split.parent = node
+            split.key = child.key[:edge_off]
+            split.pages = child.pages[: edge_off // ps]
+            split.last_access = now
+            # Re-parent the tail of the original child under the split node.
+            child.key = child.key[edge_off:]
+            child.pages = child.pages[edge_off // ps :]
+            child.parent = split
+            split.children[child.key[0]] = child
+            # Hook split into our parent in place of child.
+            node.children[split.key[0]] = split
+            # ref_count on a node is "locked leaves in subtree"; after
+            # split, all that lock-weight belongs to descendants, so split
+            # inherits child's ref_count.
+            split.ref_count = child.ref_count
+
+            if offset == len(tokens):
+                return split, redundant
+
+            # Attach the remaining input under the split as a new branch.
+            new_node = RadixNode()
+            new_node.parent = split
+            new_node.key = list(tokens[offset:])
+            new_node.pages = list(pages[offset // ps :])
+            new_node.last_access = now
+            split.children[tokens[offset]] = new_node
+            self._num_cached_pages += len(new_node.pages)
+            self.metrics.total_inserted_pages += len(new_node.pages)
+            return new_node, redundant
+
+        # Exhausted tokens exactly at a node boundary — return the deepest
+        # node we landed on. Everything was redundant.
+        return node, redundant
 
     # ── Eviction ───────────────────────────────────────────────────────
 
     def evict(self, n_pages_needed: int) -> int:
         """LRU-evict at least ``n_pages_needed`` pages (best effort).
 
-        Return the number actually freed.  Bump
-        ``metrics.total_evicted_pages``.  Never touch a locked node.
+        Walks evictable leaves (no children, ref_count == 0) oldest-first.
+        After freeing a leaf, its parent may become a leaf — push it back
+        onto the heap if it is also unlocked.
+
+        Returns the number actually freed.
         """
-        raise NotImplementedError("TODO: walk leaves, free oldest until N freed")
+        if n_pages_needed <= 0:
+            return 0
+
+        # Min-heap of (last_access, seq, node) over current evictable leaves.
+        heap: list[tuple[float, int, RadixNode]] = []
+        for node in self._walk():
+            if node is self.root:
+                continue
+            if self._is_evictable(node):
+                heapq.heappush(
+                    heap, (node.last_access, next(self._heap_seq), node)
+                )
+
+        freed = 0
+        while heap and freed < n_pages_needed:
+            _, _, node = heapq.heappop(heap)
+            # Re-validate: a re-pushed parent may have re-acquired
+            # children/locks in between heap pushes.
+            if not self._is_evictable(node):
+                continue
+            # Free pages back to pool.
+            if node.pages:
+                self.pool.free(node.pages)
+                freed += len(node.pages)
+                self._num_cached_pages -= len(node.pages)
+                self.metrics.total_evicted_pages += len(node.pages)
+            parent = node.parent
+            if parent is not None:
+                # Detach from parent's children dict.
+                parent.children.pop(node.key[0], None)
+                if self._is_evictable(parent) and parent is not self.root:
+                    heapq.heappush(
+                        heap, (parent.last_access, next(self._heap_seq), parent)
+                    )
+
+        return freed
 
     # ── Maintenance ────────────────────────────────────────────────────
 
     def reset(self) -> None:
         """Drop the whole tree, return every page to the pool."""
-        raise NotImplementedError("TODO: walk + return_pages(...) + reset root")
+        all_pages: list[int] = []
+        for node in self._walk():
+            if node is self.root:
+                continue
+            all_pages.extend(node.pages)
+        if all_pages:
+            self.pool.free(all_pages)
+        self.root.children.clear()
+        self._num_cached_pages = 0
+        self.metrics = CacheMetrics()
