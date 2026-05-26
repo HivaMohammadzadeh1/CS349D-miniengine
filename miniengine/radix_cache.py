@@ -14,8 +14,12 @@ Invariants
 ----------
 * Every node's edge ``key`` is page-aligned: ``len(key) % page_size == 0``
   and ``len(pages) == len(key) // page_size``.
-* Sibling edges (children of the same node) have unique first tokens — the
-  ``children`` dict is keyed by ``key[0]``.
+* Sibling edges (children of the same node) have unique **first pages** —
+  the ``children`` dict is keyed by ``tuple(key[:page_size])``. Keying by
+  the full first page (not just the first token) is necessary because two
+  unrelated prompts can share the first token of the chat template but
+  diverge within the first page; with page-aligned matching they must be
+  stored as separate siblings.
 * ``ref_count > 0`` on a node means the node *and* every ancestor up to root
   are pinned against eviction (an in-flight request is borrowing them).
 
@@ -66,7 +70,9 @@ class RadixNode:
 
     def __init__(self) -> None:
         self.parent: RadixNode | None = None
-        self.children: dict[int, "RadixNode"] = {}
+        # Keyed by tuple(key[:page_size]) — see module docstring for why
+        # first-token keying is not sufficient.
+        self.children: dict[tuple[int, ...], "RadixNode"] = {}
         self.key: list[int] = []
         self.pages: list[int] = []
         self.ref_count: int = 0
@@ -139,10 +145,10 @@ class RadixCache:
     def match_prefix(self, tokens: list[int]) -> MatchResult:
         """Find the longest page-aligned prefix of ``tokens`` in the tree.
 
-        Walks page-by-page: at each level the next child is the one whose
-        ``key[0]`` matches ``tokens[offset]``. Along that child's edge we
-        match in ``page_size`` chunks; if a page's tokens diverge mid-chunk
-        we stop at the last fully-matched page boundary.
+        Walks page-by-page: at each level the next child is looked up by
+        ``tuple(tokens[offset:offset+ps])``. Along the matched edge we
+        continue in ``page_size`` chunks until the edge ends or a page's
+        tokens diverge.
         """
         ps = self.page_size
         self.metrics.total_lookups += 1
@@ -155,13 +161,17 @@ class RadixCache:
         now = time.monotonic()
 
         while offset + ps <= len(tokens):
-            child = node.children.get(tokens[offset])
+            page_key = tuple(tokens[offset : offset + ps])
+            child = node.children.get(page_key)
             if child is None:
                 break
-            # Walk this edge in page-aligned chunks. Both child.key and the
-            # incoming tokens are aligned in page_size chunks by invariant.
-            edge_off = 0
+            # First page guaranteed to match (dict key). Walk further pages
+            # along this edge.
+            edge_off = ps
             edge_len = len(child.key)
+            matched_pages.append(child.pages[0])
+            matched_tokens += ps
+            offset += ps
             while (
                 edge_off + ps <= edge_len
                 and offset + ps <= len(tokens)
@@ -248,7 +258,8 @@ class RadixCache:
         now = time.monotonic()
 
         while offset < len(tokens):
-            child = node.children.get(tokens[offset])
+            page_key = tuple(tokens[offset : offset + ps])
+            child = node.children.get(page_key)
             if child is None:
                 # Fresh edge — append the remainder as a new leaf.
                 new_node = RadixNode()
@@ -256,14 +267,16 @@ class RadixCache:
                 new_node.key = list(tokens[offset:])
                 new_node.pages = list(pages[offset // ps :])
                 new_node.last_access = now
-                node.children[tokens[offset]] = new_node
+                node.children[page_key] = new_node
                 self._num_cached_pages += len(new_node.pages)
                 self.metrics.total_inserted_pages += len(new_node.pages)
                 return new_node, redundant
 
-            # Walk the child's edge, page by page.
-            edge_off = 0
+            # First page guaranteed to match (dict key). Walk further pages.
+            edge_off = ps
             edge_len = len(child.key)
+            redundant.append(pages[offset // ps])
+            offset += ps
             while (
                 edge_off < edge_len
                 and offset < len(tokens)
@@ -281,19 +294,23 @@ class RadixCache:
                 node = child
                 continue
 
-            # Mismatch mid-edge at a page boundary — split.
+            # Mismatch mid-edge at a page boundary — split. edge_off >= ps
+            # is guaranteed (first page matched via the dict lookup).
             split = RadixNode()
             split.parent = node
             split.key = child.key[:edge_off]
             split.pages = child.pages[: edge_off // ps]
             split.last_access = now
-            # Re-parent the tail of the original child under the split node.
+            # Re-parent the tail of the original child under the split.
+            old_child_first_page = page_key   # before mutating child.key
             child.key = child.key[edge_off:]
             child.pages = child.pages[edge_off // ps :]
             child.parent = split
-            split.children[child.key[0]] = child
-            # Hook split into our parent in place of child.
-            node.children[split.key[0]] = split
+            split.children[tuple(child.key[:ps])] = child
+            # Split inherits the SAME first-page key the old child had
+            # under `node`, since split.key starts at child.key's old
+            # first page. Overwrite the parent's dict entry.
+            node.children[old_child_first_page] = split
             # ref_count on a node is "locked leaves in subtree"; after
             # split, all that lock-weight belongs to descendants, so split
             # inherits child's ref_count.
@@ -308,7 +325,7 @@ class RadixCache:
             new_node.key = list(tokens[offset:])
             new_node.pages = list(pages[offset // ps :])
             new_node.last_access = now
-            split.children[tokens[offset]] = new_node
+            split.children[tuple(tokens[offset : offset + ps])] = new_node
             self._num_cached_pages += len(new_node.pages)
             self.metrics.total_inserted_pages += len(new_node.pages)
             return new_node, redundant
@@ -356,8 +373,8 @@ class RadixCache:
                 self.metrics.total_evicted_pages += len(node.pages)
             parent = node.parent
             if parent is not None:
-                # Detach from parent's children dict.
-                parent.children.pop(node.key[0], None)
+                # Detach from parent's children dict (keyed by first page).
+                parent.children.pop(tuple(node.key[: self.page_size]), None)
                 if self._is_evictable(parent) and parent is not self.root:
                     heapq.heappush(
                         heap, (parent.last_access, next(self._heap_seq), parent)

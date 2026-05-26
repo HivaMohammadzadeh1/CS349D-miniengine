@@ -115,9 +115,27 @@ def test_insert_branching_creates_split():
     # Tree now has a split node with two children at depth-1.
     children = cache.root.children
     assert len(children) == 1
-    split = children[1]  # token 1 keyed it in
+    split = children[(1, 2, 3, 4)]  # first-page tuple keys child lookups
     assert len(split.children) == 2
     assert cache.num_cached_pages == 3  # page 100 + page 101 + page 201
+
+
+def test_insert_two_first_token_collisions_within_first_page():
+    """Regression: two prompts share the first token but diverge inside
+    the first page (e.g., chat-template prefix + different group IDs).
+    With first-page keying they get stored as siblings, not a crash.
+    """
+    cache, _ = _cache(page_size=4)
+    cache.insert_and_return([1, 2, 3, 4, 5, 6, 7, 8], [100, 101])
+    # Same first token (1), divergent within first page.
+    leaf2, red = cache.insert_and_return([1, 99, 99, 99, 5, 6, 7, 8], [200, 201])
+    assert red == []  # no shared page; nothing redundant
+    # Root now has two siblings — different first-page tuples.
+    assert len(cache.root.children) == 2
+    assert (1, 2, 3, 4) in cache.root.children
+    assert (1, 99, 99, 99) in cache.root.children
+    # Both inserted in full.
+    assert cache.num_cached_pages == 4
 
 
 def test_insert_longer_extends_existing():
