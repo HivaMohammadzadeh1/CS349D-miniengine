@@ -57,3 +57,16 @@ Thumbs.db
 *.pt
 *.pth
 *.gguf
+
+# Private keys / secrets
+*.pem
+
+# VS Code local history
+.history/
+
+# Claude Code config
+.claude/
+
+# Benchmark output: keep small result files, exclude the 109MB log and the accidental nested duplicate
+bench-out/server_batched.log
+bench-out/bench-out/

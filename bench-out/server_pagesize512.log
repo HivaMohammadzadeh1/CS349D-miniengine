@@ -1,0 +1,1186 @@
+/opt/pytorch/lib/python3.12/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+22:55:24 INFO     miniengine  Initializing engine  model=Qwen/Qwen3-8B  dtype=float16  mode=paged
+22:55:24 INFO     miniengine.engine  Loading tokenizer from Qwen/Qwen3-8B …
+22:55:24 INFO     httpx  HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-8B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+22:55:24 INFO     httpx  HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-8B/b968826d9c46dd6066d109eabc6255188de91218/config.json "HTTP/1.1 200 OK"
+22:55:24 INFO     httpx  HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-8B/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+22:55:24 INFO     httpx  HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-8B/b968826d9c46dd6066d109eabc6255188de91218/tokenizer_config.json "HTTP/1.1 200 OK"
+22:55:24 INFO     httpx  HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-8B/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+22:55:24 INFO     httpx  HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-8B/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+22:55:25 INFO     httpx  HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-8B "HTTP/1.1 200 OK"
+22:55:25 INFO     miniengine.engine  Loading model config from Qwen/Qwen3-8B …
+22:55:25 INFO     httpx  HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-8B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+22:55:25 INFO     httpx  HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-8B/b968826d9c46dd6066d109eabc6255188de91218/config.json "HTTP/1.1 200 OK"
+22:55:25 INFO     miniengine.engine  Config: layers=36, hidden=4096, heads=32, kv_heads=8, head_dim=128, intermediate=12288, vocab=151936, tie_embed=False
+22:55:25 INFO     miniengine.model  Downloading / locating model files for Qwen/Qwen3-8B …
+22:55:25 INFO     httpx  HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-8B/revision/main "HTTP/1.1 200 OK"
+Fetching 11 files:   0%|          | 0/11 [00:00<?, ?it/s]Fetching 11 files: 100%|██████████| 11/11 [00:00<00:00, 160757.30it/s]
+22:55:25 INFO     miniengine.model  Loading 5 safetensors shard(s) …
+22:55:28 INFO     miniengine.model  Weights loaded — 8190735360 parameters on cuda (torch.float16)
+22:55:28 INFO     miniengine.engine  KV pool: 49 pages × 512 tokens (3.73 GB)  free=49
+22:55:28 INFO     miniengine.engine  Engine ready  —  vocab=151669, stop_ids={151643, 151645}, params=8190M
+22:55:28 INFO     miniengine.scheduler  Scheduler started
+22:55:28 INFO     miniengine  Starting server on 0.0.0.0:8000
+INFO:     Started server process [4786]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54744 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54754 - "GET /v1/models HTTP/1.1" 200 OK
+22:55:39 INFO     miniengine.scheduler  Enqueued request 8b2327f7-707b-47c3-b89b-9c961e3d0247  (prompt_len=760, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:56:00 INFO     miniengine.scheduler  Finished request #1 8b2327f7-707b-47c3-b89b-9c961e3d0247  (output_len=313, running=1, waiting=0)
+22:56:00 INFO     miniengine.scheduler  Enqueued request 6850ff3b-12be-46c1-a548-90d6ecac1277  (prompt_len=634, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:56:25 INFO     miniengine.scheduler  Finished request #2 6850ff3b-12be-46c1-a548-90d6ecac1277  (output_len=382, running=1, waiting=0)
+22:56:25 INFO     miniengine.scheduler  Enqueued request 8d4b04a7-4944-42ea-984a-55d523aa10be  (prompt_len=552, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:56:44 INFO     miniengine.scheduler  Finished request #3 8d4b04a7-4944-42ea-984a-55d523aa10be  (output_len=297, running=1, waiting=0)
+22:56:44 INFO     miniengine.scheduler  Enqueued request e19bf579-0b3f-4d7f-b951-e397ed321551  (prompt_len=950, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:57:12 INFO     miniengine.scheduler  Finished request #4 e19bf579-0b3f-4d7f-b951-e397ed321551  (output_len=417, running=1, waiting=0)
+22:57:12 INFO     miniengine.scheduler  Enqueued request 6115835e-d5ee-40fb-a256-3c485c811ee2  (prompt_len=786, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:57:32 INFO     miniengine.scheduler  Finished request #5 6115835e-d5ee-40fb-a256-3c485c811ee2  (output_len=301, running=1, waiting=0)
+22:57:32 INFO     miniengine.scheduler  Enqueued request d9b9ff00-b6b1-4101-ba09-d7790e2922a4  (prompt_len=844, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:57:57 INFO     miniengine.scheduler  Finished request #6 d9b9ff00-b6b1-4101-ba09-d7790e2922a4  (output_len=378, running=1, waiting=0)
+22:57:57 INFO     miniengine.scheduler  Enqueued request 8df0590a-3fa4-41df-9295-71a218861b7d  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:58:28 INFO     miniengine.scheduler  Finished request #7 8df0590a-3fa4-41df-9295-71a218861b7d  (output_len=458, running=1, waiting=0)
+22:58:28 INFO     miniengine.scheduler  Enqueued request aaa02f97-b8bb-4b15-b39e-83f85f2fb51b  (prompt_len=650, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:58:52 INFO     miniengine.scheduler  Finished request #8 aaa02f97-b8bb-4b15-b39e-83f85f2fb51b  (output_len=370, running=1, waiting=0)
+22:58:52 INFO     miniengine.scheduler  Enqueued request 7b5abd25-b3a2-4ada-ae3c-38ce960ee583  (prompt_len=982, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:58:56 INFO     miniengine.scheduler  Finished request #9 7b5abd25-b3a2-4ada-ae3c-38ce960ee583  (output_len=52, running=1, waiting=0)
+22:58:56 INFO     miniengine.scheduler  Enqueued request 1a83d683-a3c2-439f-b406-b905aa43f8d1  (prompt_len=589, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:59:13 INFO     miniengine.scheduler  Finished request #10 1a83d683-a3c2-439f-b406-b905aa43f8d1  (output_len=260, running=1, waiting=0)
+22:59:13 INFO     miniengine.scheduler  Enqueued request 8bc9c8bf-9816-4cd0-9206-0f6eed90577a  (prompt_len=988, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:59:34 INFO     miniengine.scheduler  Finished request #11 8bc9c8bf-9816-4cd0-9206-0f6eed90577a  (output_len=307, running=1, waiting=0)
+22:59:34 INFO     miniengine.scheduler  Enqueued request 1d19cfa9-a158-4047-9641-197597ff91ef  (prompt_len=598, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+22:59:58 INFO     miniengine.scheduler  Finished request #12 1d19cfa9-a158-4047-9641-197597ff91ef  (output_len=365, running=1, waiting=0)
+22:59:58 INFO     miniengine.scheduler  Enqueued request d90f1cec-ab15-4cb5-ba40-1e6403874ebd  (prompt_len=792, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:00:13 INFO     miniengine.scheduler  Finished request #13 d90f1cec-ab15-4cb5-ba40-1e6403874ebd  (output_len=223, running=1, waiting=0)
+23:00:13 INFO     miniengine.scheduler  Enqueued request 8833b62c-5ce9-4972-875b-bb66f4db22c7  (prompt_len=870, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:00:21 INFO     miniengine.scheduler  Finished request #14 8833b62c-5ce9-4972-875b-bb66f4db22c7  (output_len=109, running=1, waiting=0)
+23:00:21 INFO     miniengine.scheduler  Enqueued request 8c6fd758-5d5d-4824-8f3a-88b3bff0d8ee  (prompt_len=764, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:00:50 INFO     miniengine.scheduler  Finished request #15 8c6fd758-5d5d-4824-8f3a-88b3bff0d8ee  (output_len=445, running=1, waiting=0)
+23:00:50 INFO     miniengine.scheduler  Enqueued request b8ab76ab-987d-4746-ba38-fa5c97006563  (prompt_len=808, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:01:13 INFO     miniengine.scheduler  Finished request #16 b8ab76ab-987d-4746-ba38-fa5c97006563  (output_len=336, running=1, waiting=0)
+23:01:13 INFO     miniengine.scheduler  Enqueued request 5f44d73a-2361-40b4-9d0a-c718ec828a9a  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:01:40 INFO     miniengine.scheduler  Finished request #17 5f44d73a-2361-40b4-9d0a-c718ec828a9a  (output_len=410, running=1, waiting=0)
+23:01:40 INFO     miniengine.scheduler  Enqueued request 0d2b8464-8576-4b37-8bbb-19075a6d7bd9  (prompt_len=521, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:02:03 INFO     miniengine.scheduler  Finished request #18 0d2b8464-8576-4b37-8bbb-19075a6d7bd9  (output_len=335, running=1, waiting=0)
+23:02:03 INFO     miniengine.scheduler  Enqueued request c25476d3-7042-4e97-9e76-10409411bb33  (prompt_len=618, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:02:20 INFO     miniengine.scheduler  Finished request #19 c25476d3-7042-4e97-9e76-10409411bb33  (output_len=252, running=1, waiting=0)
+23:02:20 INFO     miniengine.scheduler  Enqueued request eb2d2ba7-078f-4d66-836e-3bb77e0fe41d  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:02:34 INFO     miniengine.scheduler  Finished request #20 eb2d2ba7-078f-4d66-836e-3bb77e0fe41d  (output_len=216, running=1, waiting=0)
+23:02:34 INFO     miniengine.scheduler  Enqueued request db33879d-f7d7-4ce1-9620-e8ea935c5e2f  (prompt_len=629, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:02:56 INFO     miniengine.scheduler  Finished request #21 db33879d-f7d7-4ce1-9620-e8ea935c5e2f  (output_len=335, running=1, waiting=0)
+23:02:56 INFO     miniengine.scheduler  Enqueued request d85ce769-90a1-4987-861f-0ab975050b2f  (prompt_len=791, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:03:18 INFO     miniengine.scheduler  Finished request #22 d85ce769-90a1-4987-861f-0ab975050b2f  (output_len=318, running=1, waiting=0)
+23:03:18 INFO     miniengine.scheduler  Enqueued request 0e52e236-f373-4144-829a-0028b71ee06c  (prompt_len=732, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:03:47 INFO     miniengine.scheduler  Finished request #23 0e52e236-f373-4144-829a-0028b71ee06c  (output_len=431, running=1, waiting=0)
+23:03:47 INFO     miniengine.scheduler  Enqueued request 4faa5d88-5ad4-427d-9184-3976791a3f7c  (prompt_len=727, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:03:51 INFO     miniengine.scheduler  Finished request #24 4faa5d88-5ad4-427d-9184-3976791a3f7c  (output_len=56, running=1, waiting=0)
+23:03:51 INFO     miniengine.scheduler  Enqueued request f8cbee47-3048-4f15-b820-2a6fc894cfe0  (prompt_len=1013, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:04:09 INFO     miniengine.scheduler  Finished request #25 f8cbee47-3048-4f15-b820-2a6fc894cfe0  (output_len=272, running=1, waiting=0)
+23:04:09 INFO     miniengine.scheduler  Enqueued request bb9cd973-b481-46aa-942e-650c271d57f8  (prompt_len=572, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:04:29 INFO     miniengine.scheduler  Finished request #26 bb9cd973-b481-46aa-942e-650c271d57f8  (output_len=303, running=1, waiting=0)
+23:04:29 INFO     miniengine.scheduler  Enqueued request f805b116-249e-4b58-a6ed-0674774a23fe  (prompt_len=947, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:04:56 INFO     miniengine.scheduler  Finished request #27 f805b116-249e-4b58-a6ed-0674774a23fe  (output_len=397, running=1, waiting=0)
+23:04:56 INFO     miniengine.scheduler  Enqueued request d2b2aa17-9c36-4a94-818d-d97312ed1bb1  (prompt_len=563, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:05:13 INFO     miniengine.scheduler  Finished request #28 d2b2aa17-9c36-4a94-818d-d97312ed1bb1  (output_len=257, running=1, waiting=0)
+23:05:13 INFO     miniengine.scheduler  Enqueued request c509b721-b08f-4a99-a606-85698511bedd  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:05:23 INFO     miniengine.scheduler  Finished request #29 c509b721-b08f-4a99-a606-85698511bedd  (output_len=140, running=1, waiting=0)
+23:05:23 INFO     miniengine.scheduler  Enqueued request c6867966-72be-4017-8608-de783696f35c  (prompt_len=785, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:05:45 INFO     miniengine.scheduler  Finished request #30 c6867966-72be-4017-8608-de783696f35c  (output_len=338, running=1, waiting=0)
+23:05:45 INFO     miniengine.scheduler  Enqueued request eb0d1c4b-a46b-4133-a063-d270fbc7d738  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:06:17 INFO     miniengine.scheduler  Finished request #31 eb0d1c4b-a46b-4133-a063-d270fbc7d738  (output_len=474, running=1, waiting=0)
+23:06:17 INFO     miniengine.scheduler  Enqueued request 0af77b33-cec8-4a56-97f8-8af9a3ada22b  (prompt_len=527, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:06:38 INFO     miniengine.scheduler  Finished request #32 0af77b33-cec8-4a56-97f8-8af9a3ada22b  (output_len=313, running=1, waiting=0)
+23:06:38 INFO     miniengine.scheduler  Enqueued request e482145c-d59c-4df2-9fd9-c4cca6472af0  (prompt_len=590, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:06:44 INFO     miniengine.scheduler  Finished request #33 e482145c-d59c-4df2-9fd9-c4cca6472af0  (output_len=85, running=1, waiting=0)
+23:06:44 INFO     miniengine.scheduler  Enqueued request bbc95a4f-6f39-4c80-83a5-b07f503b1023  (prompt_len=548, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:07:12 INFO     miniengine.scheduler  Finished request #34 bbc95a4f-6f39-4c80-83a5-b07f503b1023  (output_len=426, running=1, waiting=0)
+23:07:12 INFO     miniengine.scheduler  Enqueued request e5d4765d-49e8-4add-8fc3-bd2918f507c9  (prompt_len=665, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:07:44 INFO     miniengine.scheduler  Finished request #35 e5d4765d-49e8-4add-8fc3-bd2918f507c9  (output_len=476, running=1, waiting=0)
+23:07:44 INFO     miniengine.scheduler  Enqueued request 6598e64e-6383-40c1-a33b-c7ca8feb8449  (prompt_len=647, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:08:02 INFO     miniengine.scheduler  Finished request #36 6598e64e-6383-40c1-a33b-c7ca8feb8449  (output_len=277, running=1, waiting=0)
+23:08:02 INFO     miniengine.scheduler  Enqueued request 286a3a75-b759-4ff0-8d2f-c4ac191b9761  (prompt_len=829, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:08:32 INFO     miniengine.scheduler  Finished request #37 286a3a75-b759-4ff0-8d2f-c4ac191b9761  (output_len=442, running=1, waiting=0)
+23:08:32 INFO     miniengine.scheduler  Enqueued request fd1e3955-7e4c-419b-b28e-e9111f10128d  (prompt_len=555, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:09:01 INFO     miniengine.scheduler  Finished request #38 fd1e3955-7e4c-419b-b28e-e9111f10128d  (output_len=439, running=1, waiting=0)
+23:09:01 INFO     miniengine.scheduler  Enqueued request 09849587-9cb3-4720-9058-1bb9f374d05c  (prompt_len=731, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:09:27 INFO     miniengine.scheduler  Finished request #39 09849587-9cb3-4720-9058-1bb9f374d05c  (output_len=383, running=1, waiting=0)
+23:09:27 INFO     miniengine.scheduler  Enqueued request 574630dd-b7df-4e7b-9314-6ec58d8136b5  (prompt_len=617, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:09:56 INFO     miniengine.scheduler  Finished request #40 574630dd-b7df-4e7b-9314-6ec58d8136b5  (output_len=437, running=1, waiting=0)
+23:09:56 INFO     miniengine.scheduler  Enqueued request e9e215a0-7c3c-4ca2-ae17-dffee67abd56  (prompt_len=935, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:10:10 INFO     miniengine.scheduler  Finished request #41 e9e215a0-7c3c-4ca2-ae17-dffee67abd56  (output_len=205, running=1, waiting=0)
+23:10:10 INFO     miniengine.scheduler  Enqueued request 4ce3a1ec-34f6-4d1c-ae40-084c3681a5fc  (prompt_len=754, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:10:26 INFO     miniengine.scheduler  Finished request #42 4ce3a1ec-34f6-4d1c-ae40-084c3681a5fc  (output_len=243, running=1, waiting=0)
+23:10:26 INFO     miniengine.scheduler  Enqueued request c15e1d0d-a2ce-4672-8e47-57bed75d5f68  (prompt_len=701, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:10:56 INFO     miniengine.scheduler  Finished request #43 c15e1d0d-a2ce-4672-8e47-57bed75d5f68  (output_len=453, running=1, waiting=0)
+23:10:56 INFO     miniengine.scheduler  Enqueued request 50a621f9-77a2-4d8b-9490-1e3c6db47a97  (prompt_len=542, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:11:20 INFO     miniengine.scheduler  Finished request #44 50a621f9-77a2-4d8b-9490-1e3c6db47a97  (output_len=347, running=1, waiting=0)
+23:11:20 INFO     miniengine.scheduler  Enqueued request ff2d6b9d-8943-4630-803a-717f5d5f6819  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:11:51 INFO     miniengine.scheduler  Finished request #45 ff2d6b9d-8943-4630-803a-717f5d5f6819  (output_len=466, running=1, waiting=0)
+23:11:51 INFO     miniengine.scheduler  Enqueued request f39858d3-8fef-4f9e-9c44-5d31959e85d2  (prompt_len=775, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:12:17 INFO     miniengine.scheduler  Finished request #46 f39858d3-8fef-4f9e-9c44-5d31959e85d2  (output_len=392, running=1, waiting=0)
+23:12:17 INFO     miniengine.scheduler  Enqueued request fdac71b9-57b0-4b85-9934-e970675d2699  (prompt_len=681, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:12:38 INFO     miniengine.scheduler  Finished request #47 fdac71b9-57b0-4b85-9934-e970675d2699  (output_len=311, running=1, waiting=0)
+23:12:38 INFO     miniengine.scheduler  Enqueued request 5e213472-a79a-4a06-b37e-d800d287f9be  (prompt_len=911, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:12:56 INFO     miniengine.scheduler  Finished request #48 5e213472-a79a-4a06-b37e-d800d287f9be  (output_len=275, running=1, waiting=0)
+23:12:56 INFO     miniengine.scheduler  Enqueued request 9def8330-ef3b-4502-ba71-464fc80dfaed  (prompt_len=996, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:13:02 INFO     miniengine.scheduler  Finished request #49 9def8330-ef3b-4502-ba71-464fc80dfaed  (output_len=77, running=1, waiting=0)
+23:13:02 INFO     miniengine.scheduler  Enqueued request b30d8fc9-c5da-450b-86e2-a2e9fa3b5b7e  (prompt_len=725, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:13:34 INFO     miniengine.scheduler  Finished request #50 b30d8fc9-c5da-450b-86e2-a2e9fa3b5b7e  (output_len=491, running=1, waiting=0)
+23:13:34 INFO     miniengine.scheduler  Enqueued request d9cc3453-0cbf-4304-9a2a-d22555fef996  (prompt_len=873, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:14:02 INFO     miniengine.scheduler  Finished request #51 d9cc3453-0cbf-4304-9a2a-d22555fef996  (output_len=412, running=1, waiting=0)
+23:14:02 INFO     miniengine.scheduler  Enqueued request c5bbaeeb-0553-4e9d-8c72-057982144585  (prompt_len=749, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:14:27 INFO     miniengine.scheduler  Finished request #52 c5bbaeeb-0553-4e9d-8c72-057982144585  (output_len=370, running=1, waiting=0)
+23:14:27 INFO     miniengine.scheduler  Enqueued request bf3ee5ea-1c71-4c78-a653-331c160c3dd5  (prompt_len=540, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:14:35 INFO     miniengine.scheduler  Finished request #53 bf3ee5ea-1c71-4c78-a653-331c160c3dd5  (output_len=124, running=1, waiting=0)
+23:14:35 INFO     miniengine.scheduler  Enqueued request d47696d0-3019-4dd8-b94f-762ccc1f9e9a  (prompt_len=929, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:15:04 INFO     miniengine.scheduler  Finished request #54 d47696d0-3019-4dd8-b94f-762ccc1f9e9a  (output_len=424, running=1, waiting=0)
+23:15:04 INFO     miniengine.scheduler  Enqueued request d72e73ce-1cd9-4208-8052-7c3d69ced69c  (prompt_len=802, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:15:23 INFO     miniengine.scheduler  Finished request #55 d72e73ce-1cd9-4208-8052-7c3d69ced69c  (output_len=291, running=1, waiting=0)
+23:15:23 INFO     miniengine.scheduler  Enqueued request f017903a-c264-4e08-8b25-451449800314  (prompt_len=800, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:15:52 INFO     miniengine.scheduler  Finished request #56 f017903a-c264-4e08-8b25-451449800314  (output_len=435, running=1, waiting=0)
+23:15:52 INFO     miniengine.scheduler  Enqueued request 0b5ec635-4cff-4bec-a979-4ed8de01cde6  (prompt_len=930, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:16:21 INFO     miniengine.scheduler  Finished request #57 0b5ec635-4cff-4bec-a979-4ed8de01cde6  (output_len=425, running=1, waiting=0)
+23:16:21 INFO     miniengine.scheduler  Enqueued request 582a4171-1921-4547-bfb7-a7448e762d54  (prompt_len=545, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:16:42 INFO     miniengine.scheduler  Finished request #58 582a4171-1921-4547-bfb7-a7448e762d54  (output_len=315, running=1, waiting=0)
+23:16:42 INFO     miniengine.scheduler  Enqueued request 8274a8cb-3974-4259-9b7e-377443e795fa  (prompt_len=782, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:16:56 INFO     miniengine.scheduler  Finished request #59 8274a8cb-3974-4259-9b7e-377443e795fa  (output_len=215, running=1, waiting=0)
+23:16:56 INFO     miniengine.scheduler  Enqueued request 32cffcfe-eb8f-4ac6-a5f0-bd97c92ab511  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:17:15 INFO     miniengine.scheduler  Finished request #60 32cffcfe-eb8f-4ac6-a5f0-bd97c92ab511  (output_len=275, running=1, waiting=0)
+23:17:15 INFO     miniengine.scheduler  Enqueued request 48178840-e0f5-446e-90af-e55bbd5ada0a  (prompt_len=627, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:17:47 INFO     miniengine.scheduler  Finished request #61 48178840-e0f5-446e-90af-e55bbd5ada0a  (output_len=478, running=1, waiting=0)
+23:17:47 INFO     miniengine.scheduler  Enqueued request 200b7bbe-5c91-4feb-9978-d5059fe6f08a  (prompt_len=865, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:18:14 INFO     miniengine.scheduler  Finished request #62 200b7bbe-5c91-4feb-9978-d5059fe6f08a  (output_len=416, running=1, waiting=0)
+23:18:14 INFO     miniengine.scheduler  Enqueued request ca5239df-6847-4233-a7f9-5a46b9e73406  (prompt_len=958, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:18:36 INFO     miniengine.scheduler  Finished request #63 ca5239df-6847-4233-a7f9-5a46b9e73406  (output_len=315, running=1, waiting=0)
+23:18:36 INFO     miniengine.scheduler  Enqueued request b5f09861-aa82-4f51-b11a-ae82418f828d  (prompt_len=912, waiting=1)
+INFO:     127.0.0.1:38922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:18:53 INFO     miniengine.scheduler  Finished request #64 b5f09861-aa82-4f51-b11a-ae82418f828d  (output_len=254, running=1, waiting=0)
+23:18:53 INFO     miniengine.scheduler  Enqueued request 5a7ea4b8-ba1d-4a88-9522-632299df7826  (prompt_len=634, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:18:53 INFO     miniengine.scheduler  Enqueued request b12831e4-c5bd-46f4-abff-14af9237d7fe  (prompt_len=760, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:19:15 INFO     miniengine.scheduler  Finished request #65 b12831e4-c5bd-46f4-abff-14af9237d7fe  (output_len=313, running=2, waiting=0)
+23:19:15 INFO     miniengine.scheduler  Enqueued request 287a6b98-199c-4aa8-9d87-e8285649f9ef  (prompt_len=552, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:19:20 INFO     miniengine.scheduler  Finished request #66 5a7ea4b8-ba1d-4a88-9522-632299df7826  (output_len=382, running=2, waiting=0)
+23:19:20 INFO     miniengine.scheduler  Enqueued request 37944080-947a-4699-917a-36ec3df044d2  (prompt_len=950, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:19:37 INFO     miniengine.scheduler  Finished request #67 287a6b98-199c-4aa8-9d87-e8285649f9ef  (output_len=297, running=2, waiting=0)
+23:19:37 INFO     miniengine.scheduler  Enqueued request e5119dfb-e46d-41fb-a3b0-7b21e1b076b0  (prompt_len=786, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:19:50 INFO     miniengine.scheduler  Finished request #68 37944080-947a-4699-917a-36ec3df044d2  (output_len=417, running=2, waiting=0)
+23:19:50 INFO     miniengine.scheduler  Enqueued request 2a95841f-54b0-4254-9f6e-97ab55e002ee  (prompt_len=844, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:19:58 INFO     miniengine.scheduler  Finished request #69 e5119dfb-e46d-41fb-a3b0-7b21e1b076b0  (output_len=301, running=2, waiting=0)
+23:19:58 INFO     miniengine.scheduler  Enqueued request efd928a7-5c50-47ad-99ee-c84a9947b2e9  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:20:17 INFO     miniengine.scheduler  Finished request #70 2a95841f-54b0-4254-9f6e-97ab55e002ee  (output_len=378, running=2, waiting=0)
+23:20:17 INFO     miniengine.scheduler  Enqueued request 3a579aad-a6bf-4922-9173-455f7fe0977a  (prompt_len=650, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:20:31 INFO     miniengine.scheduler  Finished request #71 efd928a7-5c50-47ad-99ee-c84a9947b2e9  (output_len=458, running=2, waiting=0)
+23:20:31 INFO     miniengine.scheduler  Enqueued request 18bbd9e2-9e27-4f68-b0f0-b46e57760353  (prompt_len=982, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:20:35 INFO     miniengine.scheduler  Finished request #72 18bbd9e2-9e27-4f68-b0f0-b46e57760353  (output_len=52, running=2, waiting=0)
+23:20:35 INFO     miniengine.scheduler  Enqueued request 9657f5e6-df5a-4945-b8fa-a974fccf760e  (prompt_len=589, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:20:47 INFO     miniengine.scheduler  Finished request #73 3a579aad-a6bf-4922-9173-455f7fe0977a  (output_len=409, running=2, waiting=0)
+23:20:47 INFO     miniengine.scheduler  Enqueued request 8b02901b-e981-4f76-a39b-06c237b79aa1  (prompt_len=988, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:20:54 INFO     miniengine.scheduler  Finished request #74 9657f5e6-df5a-4945-b8fa-a974fccf760e  (output_len=260, running=2, waiting=0)
+23:20:54 INFO     miniengine.scheduler  Enqueued request b7a0ac50-055e-4006-8c7a-56202c5d9cc9  (prompt_len=598, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:21:09 INFO     miniengine.scheduler  Finished request #75 8b02901b-e981-4f76-a39b-06c237b79aa1  (output_len=307, running=2, waiting=0)
+23:21:09 INFO     miniengine.scheduler  Enqueued request 45ad6362-10e3-432c-82d5-cc64ddb04d42  (prompt_len=792, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:21:20 INFO     miniengine.scheduler  Finished request #76 b7a0ac50-055e-4006-8c7a-56202c5d9cc9  (output_len=365, running=2, waiting=0)
+23:21:20 INFO     miniengine.scheduler  Enqueued request fdd297f1-8541-43c9-b1cb-e378e883dfd9  (prompt_len=870, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:21:25 INFO     miniengine.scheduler  Finished request #77 45ad6362-10e3-432c-82d5-cc64ddb04d42  (output_len=223, running=2, waiting=0)
+23:21:25 INFO     miniengine.scheduler  Enqueued request 3405aa59-a962-42e6-9718-d64ec5050df1  (prompt_len=764, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:21:28 INFO     miniengine.scheduler  Finished request #78 fdd297f1-8541-43c9-b1cb-e378e883dfd9  (output_len=109, running=2, waiting=0)
+23:21:28 INFO     miniengine.scheduler  Enqueued request 2571f926-e927-4619-9df9-28d89d6f4e9a  (prompt_len=808, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:21:52 INFO     miniengine.scheduler  Finished request #79 2571f926-e927-4619-9df9-28d89d6f4e9a  (output_len=336, running=2, waiting=0)
+23:21:52 INFO     miniengine.scheduler  Enqueued request 53c8e8d4-0ae3-43fd-8808-d509b2c4aaf4  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:21:57 INFO     miniengine.scheduler  Finished request #80 3405aa59-a962-42e6-9718-d64ec5050df1  (output_len=445, running=2, waiting=0)
+23:21:57 INFO     miniengine.scheduler  Enqueued request 49e145b9-8b2a-4e07-8b6c-55729cf03e8a  (prompt_len=521, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:22:21 INFO     miniengine.scheduler  Finished request #81 53c8e8d4-0ae3-43fd-8808-d509b2c4aaf4  (output_len=410, running=2, waiting=0)
+23:22:21 INFO     miniengine.scheduler  Enqueued request 0eed6ce6-3359-476f-b5f5-0237304aa4fd  (prompt_len=618, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:22:22 INFO     miniengine.scheduler  Finished request #82 49e145b9-8b2a-4e07-8b6c-55729cf03e8a  (output_len=357, running=2, waiting=0)
+23:22:23 INFO     miniengine.scheduler  Enqueued request 2ee15314-2b00-4942-863a-7b98d7185d58  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:22:38 INFO     miniengine.scheduler  Finished request #83 2ee15314-2b00-4942-863a-7b98d7185d58  (output_len=222, running=2, waiting=0)
+23:22:38 INFO     miniengine.scheduler  Enqueued request 3eb95293-f161-417c-89b8-23ec38136860  (prompt_len=629, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:22:40 INFO     miniengine.scheduler  Finished request #84 0eed6ce6-3359-476f-b5f5-0237304aa4fd  (output_len=252, running=2, waiting=0)
+23:22:40 INFO     miniengine.scheduler  Enqueued request 5c394bdb-2e7f-4aef-af46-191fbdb31d0a  (prompt_len=791, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:23:02 INFO     miniengine.scheduler  Finished request #85 5c394bdb-2e7f-4aef-af46-191fbdb31d0a  (output_len=318, running=2, waiting=0)
+23:23:02 INFO     miniengine.scheduler  Enqueued request 5d18c234-e57f-44f7-ac34-f055afb0ec65  (prompt_len=732, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:23:03 INFO     miniengine.scheduler  Finished request #86 3eb95293-f161-417c-89b8-23ec38136860  (output_len=335, running=2, waiting=0)
+23:23:03 INFO     miniengine.scheduler  Enqueued request 8fa96928-9d00-45b5-8617-f1ace544423a  (prompt_len=727, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:23:07 INFO     miniengine.scheduler  Finished request #87 8fa96928-9d00-45b5-8617-f1ace544423a  (output_len=56, running=2, waiting=0)
+23:23:07 INFO     miniengine.scheduler  Enqueued request bf3381d8-b526-4997-bf39-8638d26d5986  (prompt_len=1013, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:23:26 INFO     miniengine.scheduler  Finished request #88 bf3381d8-b526-4997-bf39-8638d26d5986  (output_len=272, running=2, waiting=0)
+23:23:26 INFO     miniengine.scheduler  Enqueued request 11ba77c4-97eb-4b8f-8080-5af3aa9e69da  (prompt_len=572, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:23:34 INFO     miniengine.scheduler  Finished request #89 5d18c234-e57f-44f7-ac34-f055afb0ec65  (output_len=431, running=2, waiting=0)
+23:23:34 INFO     miniengine.scheduler  Enqueued request 774148c8-da4f-4d49-96c7-cc60d51ec739  (prompt_len=947, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:23:48 INFO     miniengine.scheduler  Finished request #90 11ba77c4-97eb-4b8f-8080-5af3aa9e69da  (output_len=303, running=2, waiting=0)
+23:23:48 INFO     miniengine.scheduler  Enqueued request 507999a6-53a9-4099-985a-437b92d45ac1  (prompt_len=563, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:24:02 INFO     miniengine.scheduler  Finished request #91 774148c8-da4f-4d49-96c7-cc60d51ec739  (output_len=397, running=2, waiting=0)
+23:24:02 INFO     miniengine.scheduler  Enqueued request 4dda05f4-4259-4c5f-8a88-69312b41cad8  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:24:06 INFO     miniengine.scheduler  Finished request #92 507999a6-53a9-4099-985a-437b92d45ac1  (output_len=257, running=2, waiting=0)
+23:24:06 INFO     miniengine.scheduler  Enqueued request a483b93a-46be-42a0-9de3-67f1a234e102  (prompt_len=785, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:24:12 INFO     miniengine.scheduler  Finished request #93 4dda05f4-4259-4c5f-8a88-69312b41cad8  (output_len=140, running=2, waiting=0)
+23:24:12 INFO     miniengine.scheduler  Enqueued request bbb9e1bd-ee99-4af3-9371-692a3b03e922  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:24:31 INFO     miniengine.scheduler  Finished request #94 a483b93a-46be-42a0-9de3-67f1a234e102  (output_len=338, running=2, waiting=0)
+23:24:31 INFO     miniengine.scheduler  Enqueued request 02f3aa67-2572-4022-853e-82a44e35bf37  (prompt_len=527, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:24:46 INFO     miniengine.scheduler  Finished request #95 bbb9e1bd-ee99-4af3-9371-692a3b03e922  (output_len=474, running=2, waiting=0)
+23:24:46 INFO     miniengine.scheduler  Enqueued request 147bfee9-bc66-4752-bfec-0d7e2fd2d4d6  (prompt_len=590, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:24:52 INFO     miniengine.scheduler  Finished request #96 147bfee9-bc66-4752-bfec-0d7e2fd2d4d6  (output_len=85, running=2, waiting=0)
+23:24:52 INFO     miniengine.scheduler  Enqueued request def2c2b4-fe89-4709-8712-c82693b84549  (prompt_len=548, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:24:53 INFO     miniengine.scheduler  Finished request #97 02f3aa67-2572-4022-853e-82a44e35bf37  (output_len=313, running=2, waiting=0)
+23:24:53 INFO     miniengine.scheduler  Enqueued request dc717b56-9d14-4eca-946c-4b5f2b80ab33  (prompt_len=665, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:25:22 INFO     miniengine.scheduler  Finished request #98 def2c2b4-fe89-4709-8712-c82693b84549  (output_len=426, running=2, waiting=0)
+23:25:22 INFO     miniengine.scheduler  Enqueued request b52fca04-8e98-43f0-946e-d9b984706970  (prompt_len=647, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:25:27 INFO     miniengine.scheduler  Finished request #99 dc717b56-9d14-4eca-946c-4b5f2b80ab33  (output_len=476, running=2, waiting=0)
+23:25:27 INFO     miniengine.scheduler  Enqueued request 031553b1-cdb0-4ef5-bb70-c878c66db4a4  (prompt_len=829, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:25:42 INFO     miniengine.scheduler  Finished request #100 b52fca04-8e98-43f0-946e-d9b984706970  (output_len=277, running=2, waiting=0)
+23:25:42 INFO     miniengine.scheduler  Enqueued request 052740e2-1573-4290-95a3-d5648995b84a  (prompt_len=555, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:25:58 INFO     miniengine.scheduler  Finished request #101 031553b1-cdb0-4ef5-bb70-c878c66db4a4  (output_len=442, running=2, waiting=0)
+23:25:58 INFO     miniengine.scheduler  Enqueued request 2417f235-0dab-450c-8422-05d75cac41eb  (prompt_len=731, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:26:13 INFO     miniengine.scheduler  Finished request #102 052740e2-1573-4290-95a3-d5648995b84a  (output_len=439, running=2, waiting=0)
+23:26:13 INFO     miniengine.scheduler  Enqueued request fe92eeb2-f478-46a5-a482-f4625f9b73ec  (prompt_len=617, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:26:26 INFO     miniengine.scheduler  Finished request #103 2417f235-0dab-450c-8422-05d75cac41eb  (output_len=383, running=2, waiting=0)
+23:26:26 INFO     miniengine.scheduler  Enqueued request 14aae489-01ae-4b26-b861-e45e8d17ea98  (prompt_len=935, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:26:39 INFO     miniengine.scheduler  Finished request #104 14aae489-01ae-4b26-b861-e45e8d17ea98  (output_len=184, running=2, waiting=0)
+23:26:39 INFO     miniengine.scheduler  Enqueued request ca54c3af-6525-484f-8889-cc34fb32b881  (prompt_len=754, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:26:45 INFO     miniengine.scheduler  Finished request #105 fe92eeb2-f478-46a5-a482-f4625f9b73ec  (output_len=437, running=2, waiting=0)
+23:26:45 INFO     miniengine.scheduler  Enqueued request 9c3741e8-a88e-464e-9766-70b3d09d32ac  (prompt_len=701, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:26:57 INFO     miniengine.scheduler  Finished request #106 ca54c3af-6525-484f-8889-cc34fb32b881  (output_len=243, running=2, waiting=0)
+23:26:57 INFO     miniengine.scheduler  Enqueued request 1e10f62c-f19b-4727-be34-9c17bad9929b  (prompt_len=542, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:27:17 INFO     miniengine.scheduler  Finished request #107 9c3741e8-a88e-464e-9766-70b3d09d32ac  (output_len=453, running=2, waiting=0)
+23:27:17 INFO     miniengine.scheduler  Enqueued request c549e83d-6996-42b6-9bf1-a7390dc3c58d  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:27:21 INFO     miniengine.scheduler  Finished request #108 1e10f62c-f19b-4727-be34-9c17bad9929b  (output_len=347, running=2, waiting=0)
+23:27:21 INFO     miniengine.scheduler  Enqueued request cf430c8b-3391-4c1d-9b7d-d288ffd44e3f  (prompt_len=775, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:27:49 INFO     miniengine.scheduler  Finished request #109 cf430c8b-3391-4c1d-9b7d-d288ffd44e3f  (output_len=392, running=2, waiting=0)
+23:27:49 INFO     miniengine.scheduler  Enqueued request d85e7e08-9bbd-4491-bfd7-5eac0fc951d1  (prompt_len=681, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:27:51 INFO     miniengine.scheduler  Finished request #110 c549e83d-6996-42b6-9bf1-a7390dc3c58d  (output_len=466, running=2, waiting=0)
+23:27:51 INFO     miniengine.scheduler  Enqueued request 08d3a7ec-f7cb-44c3-b4aa-1f75fe8ecd4f  (prompt_len=911, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:28:10 INFO     miniengine.scheduler  Finished request #111 08d3a7ec-f7cb-44c3-b4aa-1f75fe8ecd4f  (output_len=275, running=2, waiting=0)
+23:28:10 INFO     miniengine.scheduler  Enqueued request 61594ae4-a9d1-4aff-aaf0-7463a9afb42b  (prompt_len=996, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:28:12 INFO     miniengine.scheduler  Finished request #112 d85e7e08-9bbd-4491-bfd7-5eac0fc951d1  (output_len=311, running=2, waiting=0)
+23:28:12 INFO     miniengine.scheduler  Enqueued request 06bc1771-d64a-4c13-9411-e9bd453a251d  (prompt_len=725, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:28:16 INFO     miniengine.scheduler  Finished request #113 61594ae4-a9d1-4aff-aaf0-7463a9afb42b  (output_len=77, running=2, waiting=0)
+23:28:16 INFO     miniengine.scheduler  Enqueued request dbaff6d6-220b-409f-8f40-a560f0e44307  (prompt_len=873, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:28:45 INFO     miniengine.scheduler  Finished request #114 dbaff6d6-220b-409f-8f40-a560f0e44307  (output_len=412, running=2, waiting=0)
+23:28:45 INFO     miniengine.scheduler  Enqueued request eaca3b07-1c29-4474-8a7f-966900dd5ccf  (prompt_len=749, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:28:47 INFO     miniengine.scheduler  Finished request #115 06bc1771-d64a-4c13-9411-e9bd453a251d  (output_len=491, running=2, waiting=0)
+23:28:47 INFO     miniengine.scheduler  Enqueued request fe030d2c-d45d-43b3-9c79-da135ce02d04  (prompt_len=540, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:28:56 INFO     miniengine.scheduler  Finished request #116 fe030d2c-d45d-43b3-9c79-da135ce02d04  (output_len=124, running=2, waiting=0)
+23:28:56 INFO     miniengine.scheduler  Enqueued request 2fc7a9d2-a335-4f34-ab7d-0dacfb527432  (prompt_len=929, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:29:12 INFO     miniengine.scheduler  Finished request #117 eaca3b07-1c29-4474-8a7f-966900dd5ccf  (output_len=370, running=2, waiting=0)
+23:29:12 INFO     miniengine.scheduler  Enqueued request 63e31654-066b-41cf-b1eb-6dc4cc43170c  (prompt_len=802, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:29:27 INFO     miniengine.scheduler  Finished request #118 2fc7a9d2-a335-4f34-ab7d-0dacfb527432  (output_len=424, running=2, waiting=0)
+23:29:27 INFO     miniengine.scheduler  Enqueued request 55194cfb-01ba-4d4d-947d-eab6593f1f96  (prompt_len=800, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:29:33 INFO     miniengine.scheduler  Finished request #119 63e31654-066b-41cf-b1eb-6dc4cc43170c  (output_len=291, running=2, waiting=0)
+23:29:33 INFO     miniengine.scheduler  Enqueued request b76413cf-b48c-4489-9a6a-d297778e115a  (prompt_len=930, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:29:58 INFO     miniengine.scheduler  Finished request #120 55194cfb-01ba-4d4d-947d-eab6593f1f96  (output_len=435, running=2, waiting=0)
+23:29:58 INFO     miniengine.scheduler  Enqueued request c3f84394-2b56-483e-93b5-beb7057cb8bf  (prompt_len=545, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:30:04 INFO     miniengine.scheduler  Finished request #121 b76413cf-b48c-4489-9a6a-d297778e115a  (output_len=425, running=2, waiting=0)
+23:30:04 INFO     miniengine.scheduler  Enqueued request 724a55d6-8307-41f3-a5fb-fcbb04e81fcb  (prompt_len=782, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:30:19 INFO     miniengine.scheduler  Finished request #122 724a55d6-8307-41f3-a5fb-fcbb04e81fcb  (output_len=215, running=2, waiting=0)
+23:30:19 INFO     miniengine.scheduler  Enqueued request 27361af0-8a9d-4f34-9bf9-a5775e0a0c5d  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:30:21 INFO     miniengine.scheduler  Finished request #123 c3f84394-2b56-483e-93b5-beb7057cb8bf  (output_len=315, running=2, waiting=0)
+23:30:21 INFO     miniengine.scheduler  Enqueued request f2d604f9-bcee-407c-ab1f-cb42869c8261  (prompt_len=627, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:30:39 INFO     miniengine.scheduler  Finished request #124 27361af0-8a9d-4f34-9bf9-a5775e0a0c5d  (output_len=275, running=2, waiting=0)
+23:30:39 INFO     miniengine.scheduler  Enqueued request 78669556-de7d-4c06-8365-c6c3583fe5d5  (prompt_len=865, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:30:55 INFO     miniengine.scheduler  Finished request #125 f2d604f9-bcee-407c-ab1f-cb42869c8261  (output_len=478, running=2, waiting=0)
+23:30:55 INFO     miniengine.scheduler  Enqueued request 605f8f79-b306-4ee8-911e-b33efe7b49e1  (prompt_len=958, waiting=1)
+INFO:     127.0.0.1:39136 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:31:09 INFO     miniengine.scheduler  Finished request #126 78669556-de7d-4c06-8365-c6c3583fe5d5  (output_len=416, running=2, waiting=0)
+23:31:09 INFO     miniengine.scheduler  Enqueued request 62609e8f-b40a-4c46-87aa-a19112be2a12  (prompt_len=912, waiting=1)
+INFO:     127.0.0.1:39146 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:31:18 INFO     miniengine.scheduler  Finished request #127 605f8f79-b306-4ee8-911e-b33efe7b49e1  (output_len=315, running=2, waiting=0)
+23:31:26 INFO     miniengine.scheduler  Finished request #128 62609e8f-b40a-4c46-87aa-a19112be2a12  (output_len=254, running=1, waiting=0)
+23:31:26 INFO     miniengine.scheduler  Enqueued request 5dc3f9d1-930b-40cb-aa66-953dde71838c  (prompt_len=634, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:31:26 INFO     miniengine.scheduler  Enqueued request ea46a401-0708-4d75-ad19-83c0db823112  (prompt_len=552, waiting=1)
+23:31:26 INFO     miniengine.scheduler  Enqueued request 305f45ad-6493-4137-a698-9550671a9a7f  (prompt_len=950, waiting=2)
+23:31:26 INFO     miniengine.scheduler  Enqueued request 8187f60c-0bcf-43f6-81d3-19ba5577ac4d  (prompt_len=760, waiting=3)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:31:49 INFO     miniengine.scheduler  Finished request #129 ea46a401-0708-4d75-ad19-83c0db823112  (output_len=297, running=4, waiting=0)
+23:31:49 INFO     miniengine.scheduler  Enqueued request aafaac95-2780-42e1-b016-66a67180e784  (prompt_len=786, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:31:55 INFO     miniengine.scheduler  Finished request #130 8187f60c-0bcf-43f6-81d3-19ba5577ac4d  (output_len=375, running=4, waiting=0)
+23:31:55 INFO     miniengine.scheduler  Enqueued request 4b3f514a-37ef-4f4e-a6a6-b9435cf687f4  (prompt_len=844, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:31:56 INFO     miniengine.scheduler  Finished request #131 5dc3f9d1-930b-40cb-aa66-953dde71838c  (output_len=382, running=4, waiting=0)
+23:31:56 INFO     miniengine.scheduler  Enqueued request 0af3bfe4-e6fb-4a1e-a545-59040bc94b27  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:31:58 INFO     miniengine.scheduler  Finished request #132 305f45ad-6493-4137-a698-9550671a9a7f  (output_len=417, running=4, waiting=0)
+23:31:58 INFO     miniengine.scheduler  Enqueued request 81200910-018a-492e-adea-949c5efa8158  (prompt_len=650, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:12 INFO     miniengine.scheduler  Finished request #133 aafaac95-2780-42e1-b016-66a67180e784  (output_len=301, running=4, waiting=0)
+23:32:12 INFO     miniengine.scheduler  Enqueued request 7a8bc121-14a6-4188-8b5a-d9a0aa5b48d3  (prompt_len=982, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:16 INFO     miniengine.scheduler  Finished request #134 7a8bc121-14a6-4188-8b5a-d9a0aa5b48d3  (output_len=52, running=4, waiting=0)
+23:32:16 INFO     miniengine.scheduler  Enqueued request 6fc1de61-70c7-4fbc-8990-e391ae1310b9  (prompt_len=589, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:24 INFO     miniengine.scheduler  Finished request #135 4b3f514a-37ef-4f4e-a6a6-b9435cf687f4  (output_len=378, running=4, waiting=0)
+23:32:24 INFO     miniengine.scheduler  Enqueued request 8395d610-1f0e-48fd-be1d-a7cdbe9d346d  (prompt_len=988, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:27 INFO     miniengine.scheduler  Finished request #136 81200910-018a-492e-adea-949c5efa8158  (output_len=370, running=4, waiting=0)
+23:32:27 INFO     miniengine.scheduler  Enqueued request 410b5087-caed-41f9-978f-c708c07ef533  (prompt_len=598, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:31 INFO     miniengine.scheduler  Finished request #137 0af3bfe4-e6fb-4a1e-a545-59040bc94b27  (output_len=458, running=4, waiting=0)
+23:32:31 INFO     miniengine.scheduler  Enqueued request 02e7af96-7b3e-48f7-887d-e4428705707a  (prompt_len=792, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:36 INFO     miniengine.scheduler  Finished request #138 6fc1de61-70c7-4fbc-8990-e391ae1310b9  (output_len=260, running=4, waiting=0)
+23:32:36 INFO     miniengine.scheduler  Enqueued request 8cc303f5-6b80-41b9-ba46-c3eb15ae70e0  (prompt_len=870, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:44 INFO     miniengine.scheduler  Finished request #139 8cc303f5-6b80-41b9-ba46-c3eb15ae70e0  (output_len=109, running=4, waiting=0)
+23:32:44 INFO     miniengine.scheduler  Enqueued request 89f73930-af45-4cbb-9812-8c3bacb0a662  (prompt_len=764, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:47 INFO     miniengine.scheduler  Finished request #140 8395d610-1f0e-48fd-be1d-a7cdbe9d346d  (output_len=307, running=4, waiting=0)
+23:32:47 INFO     miniengine.scheduler  Enqueued request 4975d540-88b8-4076-9b7d-1fe810b05f0c  (prompt_len=808, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:48 INFO     miniengine.scheduler  Finished request #141 02e7af96-7b3e-48f7-887d-e4428705707a  (output_len=223, running=4, waiting=0)
+23:32:48 INFO     miniengine.scheduler  Enqueued request 7227b35f-1e62-4b9f-9587-7e924d8d7445  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:32:55 INFO     miniengine.scheduler  Finished request #142 410b5087-caed-41f9-978f-c708c07ef533  (output_len=365, running=4, waiting=0)
+23:32:55 INFO     miniengine.scheduler  Enqueued request 55849560-6c80-4fe4-96bf-9e316b49f0ae  (prompt_len=521, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:13 INFO     miniengine.scheduler  Finished request #143 4975d540-88b8-4076-9b7d-1fe810b05f0c  (output_len=336, running=4, waiting=0)
+23:33:13 INFO     miniengine.scheduler  Enqueued request 6a859ec1-10c9-4d75-a4b6-348cb6135c3a  (prompt_len=618, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:15 INFO     miniengine.scheduler  Finished request #144 55849560-6c80-4fe4-96bf-9e316b49f0ae  (output_len=275, running=4, waiting=0)
+23:33:15 INFO     miniengine.scheduler  Enqueued request b956410b-5b83-448c-809f-49a741e115b2  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:18 INFO     miniengine.scheduler  Finished request #145 89f73930-af45-4cbb-9812-8c3bacb0a662  (output_len=445, running=4, waiting=0)
+23:33:18 INFO     miniengine.scheduler  Enqueued request 049b3e5f-ce7a-4fe5-b1ee-d66374c1303a  (prompt_len=629, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:19 INFO     miniengine.scheduler  Finished request #146 7227b35f-1e62-4b9f-9587-7e924d8d7445  (output_len=410, running=4, waiting=0)
+23:33:19 INFO     miniengine.scheduler  Enqueued request 8e60eb3f-27a9-4d8a-8060-758db9c95720  (prompt_len=791, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:32 INFO     miniengine.scheduler  Finished request #147 b956410b-5b83-448c-809f-49a741e115b2  (output_len=216, running=4, waiting=0)
+23:33:32 INFO     miniengine.scheduler  Enqueued request fba49b4c-8b4c-4acf-99de-c9aea4a81476  (prompt_len=732, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:32 INFO     miniengine.scheduler  Finished request #148 6a859ec1-10c9-4d75-a4b6-348cb6135c3a  (output_len=252, running=4, waiting=0)
+23:33:32 INFO     miniengine.scheduler  Enqueued request f31b4e01-2bc0-4640-992d-4f512825f5c9  (prompt_len=727, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:37 INFO     miniengine.scheduler  Finished request #149 f31b4e01-2bc0-4640-992d-4f512825f5c9  (output_len=56, running=4, waiting=0)
+23:33:37 INFO     miniengine.scheduler  Enqueued request ef0b00de-d8db-4e68-9c73-2cbec5fdc5a9  (prompt_len=1013, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:43 INFO     miniengine.scheduler  Finished request #150 8e60eb3f-27a9-4d8a-8060-758db9c95720  (output_len=318, running=4, waiting=0)
+23:33:43 INFO     miniengine.scheduler  Enqueued request b91112e7-ac48-4170-b470-a522985793fa  (prompt_len=572, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:44 INFO     miniengine.scheduler  Finished request #151 049b3e5f-ce7a-4fe5-b1ee-d66374c1303a  (output_len=335, running=4, waiting=0)
+23:33:44 INFO     miniengine.scheduler  Enqueued request 0985d0a8-303a-4df9-9efe-bbd108817576  (prompt_len=947, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:33:57 INFO     miniengine.scheduler  Finished request #152 ef0b00de-d8db-4e68-9c73-2cbec5fdc5a9  (output_len=272, running=4, waiting=0)
+23:33:57 INFO     miniengine.scheduler  Enqueued request 99a9f39f-f604-49fe-8d56-6c16cb9eeb19  (prompt_len=563, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:05 INFO     miniengine.scheduler  Finished request #153 fba49b4c-8b4c-4acf-99de-c9aea4a81476  (output_len=431, running=4, waiting=0)
+23:34:05 INFO     miniengine.scheduler  Enqueued request b1c63ade-cc7a-49e4-b0e3-fb83dbb06eb1  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:06 INFO     miniengine.scheduler  Finished request #154 b91112e7-ac48-4170-b470-a522985793fa  (output_len=303, running=4, waiting=0)
+23:34:06 INFO     miniengine.scheduler  Enqueued request 9e197f9f-5b42-451a-9170-1a09f3b15b37  (prompt_len=785, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:14 INFO     miniengine.scheduler  Finished request #155 0985d0a8-303a-4df9-9efe-bbd108817576  (output_len=397, running=4, waiting=0)
+23:34:14 INFO     miniengine.scheduler  Enqueued request 7a43747d-7b0f-4854-93bc-7ffe45f1b7a0  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:16 INFO     miniengine.scheduler  Finished request #156 b1c63ade-cc7a-49e4-b0e3-fb83dbb06eb1  (output_len=140, running=4, waiting=0)
+23:34:16 INFO     miniengine.scheduler  Enqueued request 6e993fc6-f03a-4ad0-a8fd-63d58badb5df  (prompt_len=527, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:17 INFO     miniengine.scheduler  Finished request #157 99a9f39f-f604-49fe-8d56-6c16cb9eeb19  (output_len=257, running=4, waiting=0)
+23:34:17 INFO     miniengine.scheduler  Enqueued request f7481bf0-1932-4629-95a3-e2605d72bc8b  (prompt_len=590, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:24 INFO     miniengine.scheduler  Finished request #158 f7481bf0-1932-4629-95a3-e2605d72bc8b  (output_len=85, running=4, waiting=0)
+23:34:24 INFO     miniengine.scheduler  Enqueued request b3471a88-80eb-4659-a95e-79812d374961  (prompt_len=548, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:32 INFO     miniengine.scheduler  Finished request #159 9e197f9f-5b42-451a-9170-1a09f3b15b37  (output_len=338, running=4, waiting=0)
+23:34:32 INFO     miniengine.scheduler  Enqueued request 28db51a9-3f2e-4ff4-9f02-46df38699739  (prompt_len=665, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:39 INFO     miniengine.scheduler  Finished request #160 6e993fc6-f03a-4ad0-a8fd-63d58badb5df  (output_len=313, running=4, waiting=0)
+23:34:39 INFO     miniengine.scheduler  Enqueued request ee66b2f2-3a04-408e-be1c-bca41657913f  (prompt_len=647, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:50 INFO     miniengine.scheduler  Finished request #161 7a43747d-7b0f-4854-93bc-7ffe45f1b7a0  (output_len=474, running=4, waiting=0)
+23:34:50 INFO     miniengine.scheduler  Enqueued request 581c8758-1d43-4b61-ba0f-0daebcb3c766  (prompt_len=829, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:34:55 INFO     miniengine.scheduler  Finished request #162 b3471a88-80eb-4659-a95e-79812d374961  (output_len=410, running=4, waiting=0)
+23:34:55 INFO     miniengine.scheduler  Enqueued request 1c67248c-9f6a-4e77-ac19-ad23558868a1  (prompt_len=555, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:35:00 INFO     miniengine.scheduler  Finished request #163 ee66b2f2-3a04-408e-be1c-bca41657913f  (output_len=277, running=4, waiting=0)
+23:35:00 INFO     miniengine.scheduler  Enqueued request ed08707c-dac8-406d-b4ff-a36efc52d282  (prompt_len=731, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:35:08 INFO     miniengine.scheduler  Finished request #164 28db51a9-3f2e-4ff4-9f02-46df38699739  (output_len=476, running=4, waiting=0)
+23:35:08 INFO     miniengine.scheduler  Enqueued request 17c29c1d-6e6d-411f-9565-740e88c58bf2  (prompt_len=617, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:35:23 INFO     miniengine.scheduler  Finished request #165 581c8758-1d43-4b61-ba0f-0daebcb3c766  (output_len=442, running=4, waiting=0)
+23:35:23 INFO     miniengine.scheduler  Enqueued request 3b4c4d6e-a23b-4e65-9a85-d3c5ed204254  (prompt_len=935, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:35:27 INFO     miniengine.scheduler  Finished request #166 1c67248c-9f6a-4e77-ac19-ad23558868a1  (output_len=439, running=4, waiting=0)
+23:35:27 INFO     miniengine.scheduler  Enqueued request 6082865e-0b9f-4c9c-b91b-7f0071e3db93  (prompt_len=754, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:35:29 INFO     miniengine.scheduler  Finished request #167 ed08707c-dac8-406d-b4ff-a36efc52d282  (output_len=383, running=4, waiting=0)
+23:35:29 INFO     miniengine.scheduler  Enqueued request 73c0740e-0f44-4c6d-a235-af346891536b  (prompt_len=701, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:35:38 INFO     miniengine.scheduler  Finished request #168 3b4c4d6e-a23b-4e65-9a85-d3c5ed204254  (output_len=192, running=4, waiting=0)
+23:35:38 INFO     miniengine.scheduler  Enqueued request c3bf749a-842e-4ef1-bd5d-b8154f556842  (prompt_len=542, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:35:41 INFO     miniengine.scheduler  Finished request #169 17c29c1d-6e6d-411f-9565-740e88c58bf2  (output_len=437, running=4, waiting=0)
+23:35:41 INFO     miniengine.scheduler  Enqueued request db8ad8be-df94-4308-bf3a-92b47120fd5f  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:35:46 INFO     miniengine.scheduler  Finished request #170 6082865e-0b9f-4c9c-b91b-7f0071e3db93  (output_len=243, running=4, waiting=0)
+23:35:46 INFO     miniengine.scheduler  Enqueued request 44933363-8405-41c4-ac68-88dea470c741  (prompt_len=775, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:03 INFO     miniengine.scheduler  Finished request #171 73c0740e-0f44-4c6d-a235-af346891536b  (output_len=453, running=4, waiting=0)
+23:36:03 INFO     miniengine.scheduler  Enqueued request ef23846c-99ca-4632-868d-118140a091e1  (prompt_len=681, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:04 INFO     miniengine.scheduler  Finished request #172 c3bf749a-842e-4ef1-bd5d-b8154f556842  (output_len=347, running=4, waiting=0)
+23:36:04 INFO     miniengine.scheduler  Enqueued request b20d7613-e5f8-4662-bd65-056817c18d8a  (prompt_len=911, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:15 INFO     miniengine.scheduler  Finished request #173 44933363-8405-41c4-ac68-88dea470c741  (output_len=392, running=4, waiting=0)
+23:36:15 INFO     miniengine.scheduler  Enqueued request ae0206f6-54d2-4dd4-a287-9ee1d9b85d09  (prompt_len=996, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:16 INFO     miniengine.scheduler  Finished request #174 db8ad8be-df94-4308-bf3a-92b47120fd5f  (output_len=466, running=4, waiting=0)
+23:36:16 INFO     miniengine.scheduler  Enqueued request b1be30ad-1210-4221-9978-6d1868dd7503  (prompt_len=725, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:22 INFO     miniengine.scheduler  Finished request #175 ae0206f6-54d2-4dd4-a287-9ee1d9b85d09  (output_len=77, running=4, waiting=0)
+23:36:22 INFO     miniengine.scheduler  Enqueued request 5ed7fdba-3c0a-4f0e-b0ce-572553fb39dc  (prompt_len=873, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:25 INFO     miniengine.scheduler  Finished request #176 b20d7613-e5f8-4662-bd65-056817c18d8a  (output_len=275, running=4, waiting=0)
+23:36:25 INFO     miniengine.scheduler  Enqueued request 0dabd2ce-7c07-4380-9190-218f21e2bba4  (prompt_len=749, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:27 INFO     miniengine.scheduler  Finished request #177 ef23846c-99ca-4632-868d-118140a091e1  (output_len=311, running=4, waiting=0)
+23:36:27 INFO     miniengine.scheduler  Enqueued request 175dd953-e808-42e6-a58f-a206ff3a62ef  (prompt_len=540, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:36 INFO     miniengine.scheduler  Finished request #178 175dd953-e808-42e6-a58f-a206ff3a62ef  (output_len=124, running=4, waiting=0)
+23:36:36 INFO     miniengine.scheduler  Enqueued request a41f4ce7-59aa-479b-b236-9de87252d65b  (prompt_len=929, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:53 INFO     miniengine.scheduler  Finished request #179 5ed7fdba-3c0a-4f0e-b0ce-572553fb39dc  (output_len=412, running=4, waiting=0)
+23:36:53 INFO     miniengine.scheduler  Enqueued request e4755f12-67f8-4e04-8f22-eb54c3265d10  (prompt_len=802, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:53 INFO     miniengine.scheduler  Finished request #180 0dabd2ce-7c07-4380-9190-218f21e2bba4  (output_len=370, running=4, waiting=0)
+23:36:53 INFO     miniengine.scheduler  Enqueued request 2c521104-3eb2-4353-9dac-bdc3580509e6  (prompt_len=800, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:36:54 INFO     miniengine.scheduler  Finished request #181 b1be30ad-1210-4221-9978-6d1868dd7503  (output_len=491, running=4, waiting=0)
+23:36:54 INFO     miniengine.scheduler  Enqueued request 4f8cf5d0-0c54-4583-bdf4-73b299f0a6c0  (prompt_len=930, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:37:01 INFO     miniengine.scheduler  Finished request #182 4f8cf5d0-0c54-4583-bdf4-73b299f0a6c0  (output_len=94, running=4, waiting=0)
+23:37:01 INFO     miniengine.scheduler  Enqueued request bea3b2b2-7b85-4dc1-bcc4-9f35e48dae9b  (prompt_len=545, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:37:09 INFO     miniengine.scheduler  Finished request #183 a41f4ce7-59aa-479b-b236-9de87252d65b  (output_len=424, running=4, waiting=0)
+23:37:09 INFO     miniengine.scheduler  Enqueued request 7aec2883-d1c4-486d-b6dc-4a5ef335c108  (prompt_len=782, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:37:15 INFO     miniengine.scheduler  Finished request #184 e4755f12-67f8-4e04-8f22-eb54c3265d10  (output_len=291, running=4, waiting=0)
+23:37:15 INFO     miniengine.scheduler  Enqueued request 40d6cd59-d46b-4812-9836-5a4815c9dcc6  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:37:25 INFO     miniengine.scheduler  Finished request #185 bea3b2b2-7b85-4dc1-bcc4-9f35e48dae9b  (output_len=315, running=4, waiting=0)
+23:37:25 INFO     miniengine.scheduler  Enqueued request 348b4de0-c378-4036-8a9f-dff81aa20bcb  (prompt_len=627, waiting=1)
+INFO:     127.0.0.1:50212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:37:25 INFO     miniengine.scheduler  Finished request #186 7aec2883-d1c4-486d-b6dc-4a5ef335c108  (output_len=215, running=4, waiting=0)
+23:37:25 INFO     miniengine.scheduler  Enqueued request 6274f655-9f4c-4c4b-a905-d67d057cb067  (prompt_len=865, waiting=1)
+INFO:     127.0.0.1:50234 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:37:27 INFO     miniengine.scheduler  Finished request #187 2c521104-3eb2-4353-9dac-bdc3580509e6  (output_len=435, running=4, waiting=0)
+23:37:27 INFO     miniengine.scheduler  Enqueued request 647316d7-1810-447c-8a9c-d16145ee3e42  (prompt_len=958, waiting=1)
+INFO:     127.0.0.1:50222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:37:36 INFO     miniengine.scheduler  Finished request #188 40d6cd59-d46b-4812-9836-5a4815c9dcc6  (output_len=275, running=4, waiting=0)
+23:37:36 INFO     miniengine.scheduler  Enqueued request 0e6983a4-f354-4784-815b-ad2b365f39ad  (prompt_len=912, waiting=1)
+INFO:     127.0.0.1:50236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:37:50 INFO     miniengine.scheduler  Finished request #189 647316d7-1810-447c-8a9c-d16145ee3e42  (output_len=315, running=4, waiting=0)
+23:37:55 INFO     miniengine.scheduler  Finished request #190 0e6983a4-f354-4784-815b-ad2b365f39ad  (output_len=254, running=3, waiting=0)
+23:37:56 INFO     miniengine.scheduler  Finished request #191 6274f655-9f4c-4c4b-a905-d67d057cb067  (output_len=416, running=2, waiting=0)
+23:38:00 INFO     miniengine.scheduler  Finished request #192 348b4de0-c378-4036-8a9f-dff81aa20bcb  (output_len=478, running=1, waiting=0)
+23:38:00 INFO     miniengine.scheduler  Enqueued request 5b254354-2871-4a1d-a0da-25dc79b4ba4a  (prompt_len=634, waiting=1)
+INFO:     127.0.0.1:43592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:00 INFO     miniengine.scheduler  Enqueued request 36a57922-c08a-43d2-95cb-1472ab73bf95  (prompt_len=844, waiting=1)
+23:38:00 INFO     miniengine.scheduler  Enqueued request 63feb206-2ab2-4476-9cac-01c18daac8d3  (prompt_len=786, waiting=2)
+23:38:00 INFO     miniengine.scheduler  Enqueued request ff3150d9-a092-4ff8-a2f0-9b3da58cf018  (prompt_len=552, waiting=3)
+23:38:00 INFO     miniengine.scheduler  Enqueued request 6048e194-3318-40ab-ae1e-9eebada49484  (prompt_len=650, waiting=4)
+23:38:00 INFO     miniengine.scheduler  Enqueued request 5408c971-1e2a-4cc2-83f2-ed11303a7552  (prompt_len=950, waiting=5)
+23:38:00 INFO     miniengine.scheduler  Enqueued request 25589485-5bf9-4e61-b854-7079f08c6bad  (prompt_len=787, waiting=6)
+23:38:00 INFO     miniengine.scheduler  Enqueued request 8faddffd-b691-4745-b30a-c13e6d6e991e  (prompt_len=760, waiting=7)
+INFO:     127.0.0.1:43596 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43622 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43630 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43644 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43660 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:25 INFO     miniengine.scheduler  Finished request #193 ff3150d9-a092-4ff8-a2f0-9b3da58cf018  (output_len=297, running=8, waiting=0)
+23:38:25 INFO     miniengine.scheduler  Enqueued request 6d9324ef-0608-4976-ad00-522c504c8be3  (prompt_len=982, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:25 INFO     miniengine.scheduler  Finished request #194 63feb206-2ab2-4476-9cac-01c18daac8d3  (output_len=301, running=8, waiting=0)
+23:38:25 INFO     miniengine.scheduler  Enqueued request 3133f47a-98eb-4453-8291-262298b95d7b  (prompt_len=589, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:29 INFO     miniengine.scheduler  Finished request #195 6d9324ef-0608-4976-ad00-522c504c8be3  (output_len=52, running=8, waiting=0)
+23:38:29 INFO     miniengine.scheduler  Enqueued request 50881235-51a9-4aa9-aff7-d66bc7c7035b  (prompt_len=988, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:32 INFO     miniengine.scheduler  Finished request #196 8faddffd-b691-4745-b30a-c13e6d6e991e  (output_len=375, running=8, waiting=0)
+23:38:32 INFO     miniengine.scheduler  Enqueued request 5943823c-a396-46a1-a0e7-57557236ef02  (prompt_len=598, waiting=1)
+INFO:     127.0.0.1:43660 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:32 INFO     miniengine.scheduler  Finished request #197 36a57922-c08a-43d2-95cb-1472ab73bf95  (output_len=378, running=8, waiting=0)
+23:38:32 INFO     miniengine.scheduler  Enqueued request 9f1b9e40-5aa4-4f19-8ad2-2b335e0071f6  (prompt_len=792, waiting=1)
+INFO:     127.0.0.1:43596 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:33 INFO     miniengine.scheduler  Finished request #198 5b254354-2871-4a1d-a0da-25dc79b4ba4a  (output_len=382, running=8, waiting=0)
+23:38:33 INFO     miniengine.scheduler  Enqueued request 3346a29e-25ea-49ca-a9e9-534bea9005ca  (prompt_len=870, waiting=1)
+INFO:     127.0.0.1:43592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:34 INFO     miniengine.scheduler  Finished request #199 6048e194-3318-40ab-ae1e-9eebada49484  (output_len=397, running=8, waiting=0)
+23:38:34 INFO     miniengine.scheduler  Enqueued request fbd93c9b-c1ab-4709-874d-37de6c6983f6  (prompt_len=764, waiting=1)
+INFO:     127.0.0.1:43622 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:36 INFO     miniengine.scheduler  Finished request #200 5408c971-1e2a-4cc2-83f2-ed11303a7552  (output_len=417, running=8, waiting=0)
+23:38:36 INFO     miniengine.scheduler  Enqueued request 871235fe-e016-41a4-8a29-0fe5a4bf161c  (prompt_len=808, waiting=1)
+INFO:     127.0.0.1:43630 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:39 INFO     miniengine.scheduler  Finished request #201 25589485-5bf9-4e61-b854-7079f08c6bad  (output_len=458, running=8, waiting=0)
+23:38:39 INFO     miniengine.scheduler  Enqueued request 938f3df1-6b56-4e9a-ac5e-3502304742e4  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:43644 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:42 INFO     miniengine.scheduler  Finished request #202 3346a29e-25ea-49ca-a9e9-534bea9005ca  (output_len=109, running=8, waiting=0)
+23:38:42 INFO     miniengine.scheduler  Enqueued request 1f379cff-07e3-48d9-966e-86e5ced4db7a  (prompt_len=521, waiting=1)
+INFO:     127.0.0.1:43592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:48 INFO     miniengine.scheduler  Finished request #203 3133f47a-98eb-4453-8291-262298b95d7b  (output_len=260, running=8, waiting=0)
+23:38:48 INFO     miniengine.scheduler  Enqueued request d9811039-5faf-426f-917b-8cd186d60174  (prompt_len=618, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:51 INFO     miniengine.scheduler  Finished request #204 9f1b9e40-5aa4-4f19-8ad2-2b335e0071f6  (output_len=223, running=8, waiting=0)
+23:38:51 INFO     miniengine.scheduler  Enqueued request 8b8a8019-98b3-4d50-bd8d-00a5324131f6  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:43596 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:38:55 INFO     miniengine.scheduler  Finished request #205 50881235-51a9-4aa9-aff7-d66bc7c7035b  (output_len=307, running=8, waiting=0)
+23:38:55 INFO     miniengine.scheduler  Enqueued request 98f674cc-c4b5-4f60-a7af-5f34f8e08327  (prompt_len=629, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:02 INFO     miniengine.scheduler  Finished request #206 5943823c-a396-46a1-a0e7-57557236ef02  (output_len=365, running=8, waiting=0)
+23:39:02 INFO     miniengine.scheduler  Enqueued request 61e63482-d3c9-4c55-bf21-803e97ec4c3e  (prompt_len=791, waiting=1)
+INFO:     127.0.0.1:43660 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:03 INFO     miniengine.scheduler  Finished request #207 871235fe-e016-41a4-8a29-0fe5a4bf161c  (output_len=336, running=8, waiting=0)
+23:39:03 INFO     miniengine.scheduler  Enqueued request b1fde240-0164-470b-8065-d499c4476c60  (prompt_len=732, waiting=1)
+INFO:     127.0.0.1:43630 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:08 INFO     miniengine.scheduler  Finished request #208 d9811039-5faf-426f-917b-8cd186d60174  (output_len=252, running=8, waiting=0)
+23:39:08 INFO     miniengine.scheduler  Enqueued request ca2a14c8-7f69-4b1f-9a42-0efc162e0e18  (prompt_len=727, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:09 INFO     miniengine.scheduler  Finished request #209 8b8a8019-98b3-4d50-bd8d-00a5324131f6  (output_len=216, running=8, waiting=0)
+23:39:09 INFO     miniengine.scheduler  Enqueued request ace36a37-7ded-49a8-a886-cf83f6444d26  (prompt_len=1013, waiting=1)
+INFO:     127.0.0.1:43596 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:11 INFO     miniengine.scheduler  Finished request #210 fbd93c9b-c1ab-4709-874d-37de6c6983f6  (output_len=445, running=8, waiting=0)
+23:39:11 INFO     miniengine.scheduler  Enqueued request 26e83242-2eaa-42f4-a6c8-6f9e1744c89a  (prompt_len=572, waiting=1)
+INFO:     127.0.0.1:43622 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:12 INFO     miniengine.scheduler  Finished request #211 1f379cff-07e3-48d9-966e-86e5ced4db7a  (output_len=357, running=8, waiting=0)
+23:39:12 INFO     miniengine.scheduler  Enqueued request eb438ca6-4580-4c9e-ab08-2efdae699645  (prompt_len=947, waiting=1)
+INFO:     127.0.0.1:43592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:14 INFO     miniengine.scheduler  Finished request #212 938f3df1-6b56-4e9a-ac5e-3502304742e4  (output_len=410, running=8, waiting=0)
+23:39:14 INFO     miniengine.scheduler  Enqueued request e1843b47-9ed7-4863-9025-d60202720846  (prompt_len=563, waiting=1)
+INFO:     127.0.0.1:43644 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:14 INFO     miniengine.scheduler  Finished request #213 ca2a14c8-7f69-4b1f-9a42-0efc162e0e18  (output_len=56, running=7, waiting=1)
+23:39:14 INFO     miniengine.scheduler  Enqueued request 468fa712-beef-4296-8598-b5936791627a  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:24 INFO     miniengine.scheduler  Finished request #214 98f674cc-c4b5-4f60-a7af-5f34f8e08327  (output_len=335, running=8, waiting=0)
+23:39:24 INFO     miniengine.scheduler  Enqueued request 8174b2f0-5b86-41ba-9770-3ae0d90092bc  (prompt_len=785, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:25 INFO     miniengine.scheduler  Finished request #215 468fa712-beef-4296-8598-b5936791627a  (output_len=140, running=8, waiting=0)
+23:39:25 INFO     miniengine.scheduler  Enqueued request fa442b3d-13bc-45b6-8e69-fe08f4537f5c  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:29 INFO     miniengine.scheduler  Finished request #216 ace36a37-7ded-49a8-a886-cf83f6444d26  (output_len=240, running=8, waiting=0)
+23:39:29 INFO     miniengine.scheduler  Enqueued request bd613e80-6b3d-4eda-8028-1ed66b21d60b  (prompt_len=527, waiting=1)
+INFO:     127.0.0.1:43596 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:29 INFO     miniengine.scheduler  Finished request #217 61e63482-d3c9-4c55-bf21-803e97ec4c3e  (output_len=318, running=7, waiting=1)
+23:39:29 INFO     miniengine.scheduler  Enqueued request 158d260b-f6dc-43d3-a4ef-85dba193abc5  (prompt_len=590, waiting=1)
+INFO:     127.0.0.1:43660 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:35 INFO     miniengine.scheduler  Finished request #218 e1843b47-9ed7-4863-9025-d60202720846  (output_len=257, running=8, waiting=0)
+23:39:35 INFO     miniengine.scheduler  Enqueued request 1fd08e06-95ab-4f00-8554-e5bdf9549956  (prompt_len=548, waiting=1)
+INFO:     127.0.0.1:43644 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:36 INFO     miniengine.scheduler  Finished request #219 158d260b-f6dc-43d3-a4ef-85dba193abc5  (output_len=85, running=8, waiting=0)
+23:39:36 INFO     miniengine.scheduler  Enqueued request de70c010-0550-457a-a628-db9b7029775b  (prompt_len=665, waiting=1)
+INFO:     127.0.0.1:43660 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:37 INFO     miniengine.scheduler  Finished request #220 26e83242-2eaa-42f4-a6c8-6f9e1744c89a  (output_len=303, running=8, waiting=0)
+23:39:37 INFO     miniengine.scheduler  Enqueued request def9e0f8-6f01-4129-b869-9d874fd7562e  (prompt_len=647, waiting=1)
+INFO:     127.0.0.1:43622 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:40 INFO     miniengine.scheduler  Finished request #221 b1fde240-0164-470b-8065-d499c4476c60  (output_len=431, running=8, waiting=0)
+23:39:40 INFO     miniengine.scheduler  Enqueued request 4fab765d-df30-43da-9d86-a4952a0e8b24  (prompt_len=829, waiting=1)
+INFO:     127.0.0.1:43630 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:45 INFO     miniengine.scheduler  Finished request #222 eb438ca6-4580-4c9e-ab08-2efdae699645  (output_len=397, running=8, waiting=0)
+23:39:45 INFO     miniengine.scheduler  Enqueued request 382e9444-0de8-4411-aeb2-b62653390428  (prompt_len=555, waiting=1)
+INFO:     127.0.0.1:43592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:51 INFO     miniengine.scheduler  Finished request #223 8174b2f0-5b86-41ba-9770-3ae0d90092bc  (output_len=338, running=8, waiting=0)
+23:39:51 INFO     miniengine.scheduler  Enqueued request 289c8b0f-86d2-40ee-a49b-93effaa9b7c9  (prompt_len=731, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:55 INFO     miniengine.scheduler  Finished request #224 bd613e80-6b3d-4eda-8028-1ed66b21d60b  (output_len=313, running=8, waiting=0)
+23:39:55 INFO     miniengine.scheduler  Enqueued request 228cd1c3-c3e1-4f58-9001-2456ef6c9a01  (prompt_len=617, waiting=1)
+INFO:     127.0.0.1:43596 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:39:59 INFO     miniengine.scheduler  Finished request #225 def9e0f8-6f01-4129-b869-9d874fd7562e  (output_len=277, running=8, waiting=0)
+23:39:59 INFO     miniengine.scheduler  Enqueued request efadfce6-3159-4f5a-b93d-b9635c74a6ec  (prompt_len=935, waiting=1)
+INFO:     127.0.0.1:43622 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:04 INFO     miniengine.scheduler  Finished request #226 fa442b3d-13bc-45b6-8e69-fe08f4537f5c  (output_len=474, running=8, waiting=0)
+23:40:04 INFO     miniengine.scheduler  Enqueued request 1bbb2916-883f-4fe0-9c67-4274658140ba  (prompt_len=754, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:08 INFO     miniengine.scheduler  Finished request #227 1fd08e06-95ab-4f00-8554-e5bdf9549956  (output_len=410, running=8, waiting=0)
+23:40:08 INFO     miniengine.scheduler  Enqueued request 99b9974d-f555-4a0e-9e60-aee2491dcbcb  (prompt_len=701, waiting=1)
+INFO:     127.0.0.1:43644 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:14 INFO     miniengine.scheduler  Finished request #228 efadfce6-3159-4f5a-b93d-b9635c74a6ec  (output_len=192, running=8, waiting=0)
+23:40:14 INFO     miniengine.scheduler  Enqueued request 820fc19e-43dd-4484-bda9-f7005291216f  (prompt_len=542, waiting=1)
+INFO:     127.0.0.1:43622 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:15 INFO     miniengine.scheduler  Finished request #229 de70c010-0550-457a-a628-db9b7029775b  (output_len=476, running=8, waiting=0)
+23:40:15 INFO     miniengine.scheduler  Enqueued request 1906d149-727f-43ec-9cf9-5347e3750468  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:43660 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:16 INFO     miniengine.scheduler  Finished request #230 4fab765d-df30-43da-9d86-a4952a0e8b24  (output_len=442, running=8, waiting=0)
+23:40:16 INFO     miniengine.scheduler  Enqueued request e381f89d-99df-450f-b673-e2b44ee5e65d  (prompt_len=775, waiting=1)
+INFO:     127.0.0.1:43630 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:20 INFO     miniengine.scheduler  Finished request #231 382e9444-0de8-4411-aeb2-b62653390428  (output_len=439, running=8, waiting=0)
+23:40:20 INFO     miniengine.scheduler  Enqueued request 74ae6679-792f-4d00-95f3-0d415b32afbe  (prompt_len=681, waiting=1)
+INFO:     127.0.0.1:43592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:23 INFO     miniengine.scheduler  Finished request #232 289c8b0f-86d2-40ee-a49b-93effaa9b7c9  (output_len=383, running=8, waiting=0)
+23:40:23 INFO     miniengine.scheduler  Enqueued request 13801b4f-5337-4d2e-86bd-6f65a034d45c  (prompt_len=911, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:24 INFO     miniengine.scheduler  Finished request #233 1bbb2916-883f-4fe0-9c67-4274658140ba  (output_len=243, running=8, waiting=0)
+23:40:24 INFO     miniengine.scheduler  Enqueued request b7c8f9ca-2f76-471a-9bd0-e482e704293e  (prompt_len=996, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:30 INFO     miniengine.scheduler  Finished request #234 228cd1c3-c3e1-4f58-9001-2456ef6c9a01  (output_len=437, running=8, waiting=0)
+23:40:30 INFO     miniengine.scheduler  Enqueued request 5febf541-dd21-4049-b82e-5ec9e77a704c  (prompt_len=725, waiting=1)
+INFO:     127.0.0.1:43596 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:39 INFO     miniengine.scheduler  Finished request #235 b7c8f9ca-2f76-471a-9bd0-e482e704293e  (output_len=199, running=8, waiting=0)
+23:40:39 INFO     miniengine.scheduler  Enqueued request cc8d7ffe-22a2-4a77-8ee0-0455c59e5a6e  (prompt_len=873, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:42 INFO     miniengine.scheduler  Finished request #236 820fc19e-43dd-4484-bda9-f7005291216f  (output_len=347, running=8, waiting=0)
+23:40:42 INFO     miniengine.scheduler  Enqueued request fd2a6a71-f3f9-47e3-af45-04dec96d71f5  (prompt_len=749, waiting=1)
+INFO:     127.0.0.1:43622 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:45 INFO     miniengine.scheduler  Finished request #237 13801b4f-5337-4d2e-86bd-6f65a034d45c  (output_len=275, running=8, waiting=0)
+23:40:45 INFO     miniengine.scheduler  Enqueued request 1e9d95b0-eb67-44c7-805b-823653906da7  (prompt_len=540, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:45 INFO     miniengine.scheduler  Finished request #238 99b9974d-f555-4a0e-9e60-aee2491dcbcb  (output_len=453, running=7, waiting=1)
+23:40:45 INFO     miniengine.scheduler  Enqueued request 2c9cff95-b22c-4c44-8c55-edc5cca60463  (prompt_len=929, waiting=1)
+INFO:     127.0.0.1:43644 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:46 INFO     miniengine.scheduler  Finished request #239 74ae6679-792f-4d00-95f3-0d415b32afbe  (output_len=311, running=8, waiting=0)
+23:40:46 INFO     miniengine.scheduler  Enqueued request 588c1a1d-d41d-4a91-af35-2fa09d7a8323  (prompt_len=802, waiting=1)
+INFO:     127.0.0.1:43592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:48 INFO     miniengine.scheduler  Finished request #240 e381f89d-99df-450f-b673-e2b44ee5e65d  (output_len=392, running=8, waiting=0)
+23:40:48 INFO     miniengine.scheduler  Enqueued request 50e08a9b-00a5-4ded-a1f1-988541f8ae56  (prompt_len=800, waiting=1)
+INFO:     127.0.0.1:43630 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:53 INFO     miniengine.scheduler  Finished request #241 1906d149-727f-43ec-9cf9-5347e3750468  (output_len=466, running=8, waiting=0)
+23:40:53 INFO     miniengine.scheduler  Enqueued request ca7f6003-f55c-4057-8fe2-72a13079becf  (prompt_len=930, waiting=1)
+INFO:     127.0.0.1:43660 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:40:55 INFO     miniengine.scheduler  Finished request #242 1e9d95b0-eb67-44c7-805b-823653906da7  (output_len=124, running=8, waiting=0)
+23:40:55 INFO     miniengine.scheduler  Enqueued request c6fc8471-59e4-499a-9687-6827dbbb93a6  (prompt_len=545, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:09 INFO     miniengine.scheduler  Finished request #243 588c1a1d-d41d-4a91-af35-2fa09d7a8323  (output_len=291, running=8, waiting=0)
+23:41:09 INFO     miniengine.scheduler  Enqueued request bd588d43-6888-4ae5-ba21-c73a7b059232  (prompt_len=782, waiting=1)
+INFO:     127.0.0.1:43592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:10 INFO     miniengine.scheduler  Finished request #244 5febf541-dd21-4049-b82e-5ec9e77a704c  (output_len=491, running=8, waiting=0)
+23:41:10 INFO     miniengine.scheduler  Enqueued request 811da572-201f-43fc-ae35-a61b08d45765  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:43596 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:13 INFO     miniengine.scheduler  Finished request #245 fd2a6a71-f3f9-47e3-af45-04dec96d71f5  (output_len=370, running=8, waiting=0)
+23:41:13 INFO     miniengine.scheduler  Enqueued request 720f8213-2643-4586-aa79-fb30d6d7de46  (prompt_len=627, waiting=1)
+INFO:     127.0.0.1:43622 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:14 INFO     miniengine.scheduler  Finished request #246 cc8d7ffe-22a2-4a77-8ee0-0455c59e5a6e  (output_len=412, running=8, waiting=0)
+23:41:14 INFO     miniengine.scheduler  Enqueued request 75ad4edd-7db5-4274-a5ef-4a0f2c9bc99c  (prompt_len=865, waiting=1)
+INFO:     127.0.0.1:43606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:20 INFO     miniengine.scheduler  Finished request #247 2c9cff95-b22c-4c44-8c55-edc5cca60463  (output_len=424, running=8, waiting=0)
+23:41:20 INFO     miniengine.scheduler  Enqueued request 79efe907-b861-43a8-952e-c689ff06f067  (prompt_len=958, waiting=1)
+INFO:     127.0.0.1:43644 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:21 INFO     miniengine.scheduler  Finished request #248 c6fc8471-59e4-499a-9687-6827dbbb93a6  (output_len=315, running=8, waiting=0)
+23:41:21 INFO     miniengine.scheduler  Enqueued request d3ac655c-b2df-4c85-9315-64d69b005e37  (prompt_len=912, waiting=1)
+INFO:     127.0.0.1:43620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:23 INFO     miniengine.scheduler  Finished request #249 50e08a9b-00a5-4ded-a1f1-988541f8ae56  (output_len=435, running=8, waiting=0)
+23:41:27 INFO     miniengine.scheduler  Finished request #250 bd588d43-6888-4ae5-ba21-c73a7b059232  (output_len=215, running=7, waiting=0)
+23:41:28 INFO     miniengine.scheduler  Finished request #251 ca7f6003-f55c-4057-8fe2-72a13079becf  (output_len=425, running=6, waiting=0)
+23:41:32 INFO     miniengine.scheduler  Finished request #252 811da572-201f-43fc-ae35-a61b08d45765  (output_len=275, running=5, waiting=0)
+23:41:40 INFO     miniengine.scheduler  Finished request #253 d3ac655c-b2df-4c85-9315-64d69b005e37  (output_len=254, running=4, waiting=0)
+23:41:43 INFO     miniengine.scheduler  Finished request #254 79efe907-b861-43a8-952e-c689ff06f067  (output_len=315, running=3, waiting=0)
+23:41:45 INFO     miniengine.scheduler  Finished request #255 75ad4edd-7db5-4274-a5ef-4a0f2c9bc99c  (output_len=416, running=2, waiting=0)
+23:41:49 INFO     miniengine.scheduler  Finished request #256 720f8213-2643-4586-aa79-fb30d6d7de46  (output_len=478, running=1, waiting=0)
+23:41:49 INFO     miniengine.scheduler  Enqueued request a0d8d4b2-8e58-48da-adef-5dd739bd2b46  (prompt_len=634, waiting=1)
+INFO:     127.0.0.1:47158 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:49 INFO     miniengine.scheduler  Enqueued request edfafc69-242f-4409-9d63-cea8f4e96f1e  (prompt_len=844, waiting=2)
+23:41:49 INFO     miniengine.scheduler  Enqueued request d98f6db6-68ef-491b-838b-db15563d71fa  (prompt_len=988, waiting=1)
+23:41:49 INFO     miniengine.scheduler  Enqueued request c02649b2-8e44-40a2-9d48-a34674a69361  (prompt_len=650, waiting=2)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 681143e3-e1a9-47c7-a42e-817286f09916  (prompt_len=870, waiting=3)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 819cb9be-a949-4cb7-861b-c2949763e8f4  (prompt_len=982, waiting=4)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 3509f171-7fe9-4bf6-a2cb-f6be1f589c09  (prompt_len=950, waiting=5)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 84acdd60-3f82-466b-a47c-6ba8f7fd3140  (prompt_len=792, waiting=6)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 410672a1-9d33-4928-b2f2-73e0ca881977  (prompt_len=552, waiting=7)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 9c0ae9db-1e73-44b6-b479-b9f4dfea18d6  (prompt_len=589, waiting=8)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 1ff301b3-f611-4d41-bb04-9c1f13cb90c4  (prompt_len=808, waiting=9)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 68de21d5-045e-4ca6-a6c0-e7623356cba3  (prompt_len=598, waiting=10)
+23:41:49 INFO     miniengine.scheduler  Enqueued request fdb9a7f8-178f-41ac-b577-4f514769e272  (prompt_len=786, waiting=11)
+23:41:49 INFO     miniengine.scheduler  Enqueued request f3f78c54-03a3-4731-ae6f-4fe95fe204d0  (prompt_len=787, waiting=12)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 27801bd1-1ca4-4f1d-a055-d3dee9240efd  (prompt_len=764, waiting=13)
+23:41:49 INFO     miniengine.scheduler  Enqueued request 50c1dae3-63d4-4a44-b47a-dd32a4b0e22e  (prompt_len=760, waiting=14)
+INFO:     127.0.0.1:47168 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47176 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47178 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47194 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47204 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47220 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47242 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47252 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47264 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47266 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47282 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47298 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47308 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:41:58 INFO     miniengine.scheduler  Finished request #257 819cb9be-a949-4cb7-861b-c2949763e8f4  (output_len=52, running=16, waiting=0)
+23:41:58 INFO     miniengine.scheduler  Enqueued request 497f9990-c523-4ba6-897c-e3ae77fe2d7c  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:47204 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:03 INFO     miniengine.scheduler  Finished request #258 681143e3-e1a9-47c7-a42e-817286f09916  (output_len=109, running=16, waiting=0)
+23:42:03 INFO     miniengine.scheduler  Enqueued request 1e7894cc-6f8c-4b8e-b15f-3c3693b720fd  (prompt_len=521, waiting=1)
+INFO:     127.0.0.1:47194 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:12 INFO     miniengine.scheduler  Finished request #259 84acdd60-3f82-466b-a47c-6ba8f7fd3140  (output_len=223, running=16, waiting=0)
+23:42:12 INFO     miniengine.scheduler  Enqueued request 1da4fa6e-8c5b-4b0a-803d-6707aeadf989  (prompt_len=618, waiting=1)
+INFO:     127.0.0.1:47220 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:16 INFO     miniengine.scheduler  Finished request #260 9c0ae9db-1e73-44b6-b479-b9f4dfea18d6  (output_len=260, running=16, waiting=0)
+23:42:16 INFO     miniengine.scheduler  Enqueued request f009968a-b9a3-4ca3-9313-61b756897034  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:47242 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:19 INFO     miniengine.scheduler  Finished request #261 410672a1-9d33-4928-b2f2-73e0ca881977  (output_len=297, running=16, waiting=0)
+23:42:19 INFO     miniengine.scheduler  Enqueued request 852eb586-dc98-45fa-8bb8-b729f3576775  (prompt_len=629, waiting=1)
+INFO:     127.0.0.1:47236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:20 INFO     miniengine.scheduler  Finished request #262 fdb9a7f8-178f-41ac-b577-4f514769e272  (output_len=301, running=16, waiting=0)
+23:42:20 INFO     miniengine.scheduler  Enqueued request cc6abaf6-0667-4bd8-a6af-06722c757e0c  (prompt_len=791, waiting=1)
+INFO:     127.0.0.1:47266 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:20 INFO     miniengine.scheduler  Finished request #263 d98f6db6-68ef-491b-838b-db15563d71fa  (output_len=307, running=16, waiting=0)
+23:42:20 INFO     miniengine.scheduler  Enqueued request fda6dfb9-b0fd-4a24-961a-9108c9c60281  (prompt_len=732, waiting=1)
+INFO:     127.0.0.1:47176 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:23 INFO     miniengine.scheduler  Finished request #264 1ff301b3-f611-4d41-bb04-9c1f13cb90c4  (output_len=336, running=16, waiting=0)
+23:42:23 INFO     miniengine.scheduler  Enqueued request e83833a2-a1dc-4e9c-914e-94598719d2a2  (prompt_len=727, waiting=1)
+INFO:     127.0.0.1:47252 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:26 INFO     miniengine.scheduler  Finished request #265 68de21d5-045e-4ca6-a6c0-e7623356cba3  (output_len=365, running=16, waiting=0)
+23:42:26 INFO     miniengine.scheduler  Enqueued request 0a1a49fc-6da9-4b38-9bbb-a590e5423a3d  (prompt_len=1013, waiting=1)
+INFO:     127.0.0.1:47264 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:27 INFO     miniengine.scheduler  Finished request #266 50c1dae3-63d4-4a44-b47a-dd32a4b0e22e  (output_len=375, running=16, waiting=0)
+23:42:27 INFO     miniengine.scheduler  Enqueued request f847294c-2fac-4db8-93c6-0b9357dd253b  (prompt_len=572, waiting=1)
+INFO:     127.0.0.1:47308 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:27 INFO     miniengine.scheduler  Finished request #267 edfafc69-242f-4409-9d63-cea8f4e96f1e  (output_len=378, running=16, waiting=0)
+23:42:27 INFO     miniengine.scheduler  Enqueued request 8c26a6b3-a6f7-4555-a0ab-8e2bf64bc8d8  (prompt_len=947, waiting=1)
+INFO:     127.0.0.1:47168 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:28 INFO     miniengine.scheduler  Finished request #268 a0d8d4b2-8e58-48da-adef-5dd739bd2b46  (output_len=382, running=16, waiting=0)
+23:42:28 INFO     miniengine.scheduler  Enqueued request 1b81fe6b-9409-496d-a068-525a784776c3  (prompt_len=563, waiting=1)
+INFO:     127.0.0.1:47158 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:29 INFO     miniengine.scheduler  Finished request #269 1e7894cc-6f8c-4b8e-b15f-3c3693b720fd  (output_len=275, running=16, waiting=0)
+23:42:29 INFO     miniengine.scheduler  Enqueued request bbd97456-c3b9-46ca-b57e-27a06b68c8ac  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:47194 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:29 INFO     miniengine.scheduler  Finished request #270 e83833a2-a1dc-4e9c-914e-94598719d2a2  (output_len=56, running=16, waiting=0)
+23:42:29 INFO     miniengine.scheduler  Enqueued request 638cd4e8-365c-4d11-b66c-0b11245acdb9  (prompt_len=785, waiting=1)
+INFO:     127.0.0.1:47252 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:30 INFO     miniengine.scheduler  Finished request #271 c02649b2-8e44-40a2-9d48-a34674a69361  (output_len=397, running=16, waiting=0)
+23:42:30 INFO     miniengine.scheduler  Enqueued request e8e43ea7-0bc2-40ba-806c-9a441746ed06  (prompt_len=967, waiting=1)
+INFO:     127.0.0.1:47178 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:32 INFO     miniengine.scheduler  Finished request #272 3509f171-7fe9-4bf6-a2cb-f6be1f589c09  (output_len=417, running=16, waiting=0)
+23:42:32 INFO     miniengine.scheduler  Enqueued request 61bd95ce-6fb8-450e-80ac-4730a60b1300  (prompt_len=527, waiting=1)
+INFO:     127.0.0.1:47212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:35 INFO     miniengine.scheduler  Finished request #273 27801bd1-1ca4-4f1d-a055-d3dee9240efd  (output_len=445, running=16, waiting=0)
+23:42:35 INFO     miniengine.scheduler  Enqueued request 6f347941-b632-47c7-ada4-6ef945e74934  (prompt_len=590, waiting=1)
+INFO:     127.0.0.1:47298 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:36 INFO     miniengine.scheduler  Finished request #274 f3f78c54-03a3-4731-ae6f-4fe95fe204d0  (output_len=458, running=16, waiting=0)
+23:42:36 INFO     miniengine.scheduler  Enqueued request 8a8c7edf-a31f-4ae1-999d-4bc0bcfd5d68  (prompt_len=548, waiting=1)
+INFO:     127.0.0.1:47282 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:37 INFO     miniengine.scheduler  Finished request #275 497f9990-c523-4ba6-897c-e3ae77fe2d7c  (output_len=410, running=16, waiting=0)
+23:42:37 INFO     miniengine.scheduler  Enqueued request 96ad0e4e-8ce2-47e8-ae0a-09b918dd8c94  (prompt_len=665, waiting=1)
+INFO:     127.0.0.1:47204 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:38 INFO     miniengine.scheduler  Finished request #276 1da4fa6e-8c5b-4b0a-803d-6707aeadf989  (output_len=252, running=16, waiting=0)
+23:42:38 INFO     miniengine.scheduler  Enqueued request b145c6f5-3268-410e-9087-8e87261701d6  (prompt_len=647, waiting=1)
+INFO:     127.0.0.1:47220 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:39 INFO     miniengine.scheduler  Finished request #277 f009968a-b9a3-4ca3-9313-61b756897034  (output_len=230, running=16, waiting=0)
+23:42:39 INFO     miniengine.scheduler  Enqueued request eb665de2-bb4d-445c-85dc-566bf42ea544  (prompt_len=829, waiting=1)
+INFO:     127.0.0.1:47242 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:42 INFO     miniengine.scheduler  Finished request #278 bbd97456-c3b9-46ca-b57e-27a06b68c8ac  (output_len=140, running=16, waiting=0)
+23:42:42 INFO     miniengine.scheduler  Enqueued request 99a4fd74-0e71-4c94-82ac-fc72277fa24c  (prompt_len=555, waiting=1)
+INFO:     127.0.0.1:47194 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:43 INFO     miniengine.scheduler  Finished request #279 6f347941-b632-47c7-ada4-6ef945e74934  (output_len=85, running=16, waiting=0)
+23:42:43 INFO     miniengine.scheduler  Enqueued request c45e78b1-2766-4d69-b96d-2fa94fbe1824  (prompt_len=731, waiting=1)
+INFO:     127.0.0.1:47298 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:50 INFO     miniengine.scheduler  Finished request #280 0a1a49fc-6da9-4b38-9bbb-a590e5423a3d  (output_len=240, running=16, waiting=0)
+23:42:50 INFO     miniengine.scheduler  Enqueued request 49e5e69d-b086-4b68-b4f5-35219addd5b6  (prompt_len=617, waiting=1)
+INFO:     127.0.0.1:47264 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:51 INFO     miniengine.scheduler  Finished request #281 cc6abaf6-0667-4bd8-a6af-06722c757e0c  (output_len=318, running=16, waiting=0)
+23:42:51 INFO     miniengine.scheduler  Enqueued request d202fd26-81b7-4395-bdc9-df31e1cf5ca1  (prompt_len=935, waiting=1)
+INFO:     127.0.0.1:47266 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:52 INFO     miniengine.scheduler  Finished request #282 852eb586-dc98-45fa-8bb8-b729f3576775  (output_len=335, running=16, waiting=0)
+23:42:52 INFO     miniengine.scheduler  Enqueued request d7b1b991-e2d7-4e8c-843c-683a2b2cd9ae  (prompt_len=754, waiting=1)
+INFO:     127.0.0.1:47236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:53 INFO     miniengine.scheduler  Finished request #283 1b81fe6b-9409-496d-a068-525a784776c3  (output_len=257, running=16, waiting=0)
+23:42:53 INFO     miniengine.scheduler  Enqueued request 12cdc3a0-7ed3-4f84-b803-f8cac25fb1e9  (prompt_len=701, waiting=1)
+INFO:     127.0.0.1:47158 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:42:57 INFO     miniengine.scheduler  Finished request #284 f847294c-2fac-4db8-93c6-0b9357dd253b  (output_len=303, running=16, waiting=0)
+23:42:57 INFO     miniengine.scheduler  Enqueued request a96b2c58-e6d2-45a4-8a38-5412decb9dc9  (prompt_len=542, waiting=1)
+INFO:     127.0.0.1:47308 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:01 INFO     miniengine.scheduler  Finished request #285 638cd4e8-365c-4d11-b66c-0b11245acdb9  (output_len=338, running=16, waiting=0)
+23:43:01 INFO     miniengine.scheduler  Finished request #286 61bd95ce-6fb8-450e-80ac-4730a60b1300  (output_len=313, running=16, waiting=0)
+23:43:01 INFO     miniengine.scheduler  Enqueued request 17082a62-fe8f-489f-b8bb-097410c21d9e  (prompt_len=856, waiting=1)
+INFO:     127.0.0.1:47252 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:01 INFO     miniengine.scheduler  Enqueued request 3fdee0c0-08c0-49f3-aa20-549f28d575f1  (prompt_len=775, waiting=2)
+INFO:     127.0.0.1:47212 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:02 INFO     miniengine.scheduler  Finished request #287 fda6dfb9-b0fd-4a24-961a-9108c9c60281  (output_len=431, running=16, waiting=0)
+23:43:02 INFO     miniengine.scheduler  Enqueued request c1449bba-c907-4f60-b509-0cdf86f80073  (prompt_len=681, waiting=1)
+INFO:     127.0.0.1:47176 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:04 INFO     miniengine.scheduler  Finished request #288 b145c6f5-3268-410e-9087-8e87261701d6  (output_len=277, running=16, waiting=0)
+23:43:04 INFO     miniengine.scheduler  Enqueued request 3094540e-0f15-4b92-aa34-80b48aff2b6f  (prompt_len=911, waiting=1)
+INFO:     127.0.0.1:47220 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:06 INFO     miniengine.scheduler  Finished request #289 8c26a6b3-a6f7-4555-a0ab-8e2bf64bc8d8  (output_len=397, running=16, waiting=0)
+23:43:06 INFO     miniengine.scheduler  Enqueued request 1d84b504-d0e7-412e-97ff-10176e35a688  (prompt_len=996, waiting=1)
+INFO:     127.0.0.1:47168 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:06 INFO     miniengine.scheduler  Finished request #290 d202fd26-81b7-4395-bdc9-df31e1cf5ca1  (output_len=156, running=15, waiting=1)
+23:43:06 INFO     miniengine.scheduler  Enqueued request a8a3f35f-e7a3-4273-9b83-6aacfaef2de2  (prompt_len=725, waiting=1)
+INFO:     127.0.0.1:47266 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:13 INFO     miniengine.scheduler  Finished request #291 1d84b504-d0e7-412e-97ff-10176e35a688  (output_len=77, running=16, waiting=0)
+23:43:13 INFO     miniengine.scheduler  Enqueued request 331c8f40-998b-4d56-9c58-87be7125e1c3  (prompt_len=873, waiting=1)
+INFO:     127.0.0.1:47168 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:15 INFO     miniengine.scheduler  Finished request #292 e8e43ea7-0bc2-40ba-806c-9a441746ed06  (output_len=474, running=16, waiting=0)
+23:43:15 INFO     miniengine.scheduler  Enqueued request d6cf4d6e-4356-4ef5-86f2-74cb65ac0bf9  (prompt_len=749, waiting=1)
+INFO:     127.0.0.1:47178 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:15 INFO     miniengine.scheduler  Finished request #293 d7b1b991-e2d7-4e8c-843c-683a2b2cd9ae  (output_len=243, running=16, waiting=0)
+23:43:15 INFO     miniengine.scheduler  Enqueued request 3cacae6f-187a-45ea-9364-a35cfd459017  (prompt_len=540, waiting=1)
+INFO:     127.0.0.1:47236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:16 INFO     miniengine.scheduler  Finished request #294 8a8c7edf-a31f-4ae1-999d-4bc0bcfd5d68  (output_len=426, running=16, waiting=0)
+23:43:16 INFO     miniengine.scheduler  Enqueued request af20e866-f6b1-4fc6-a1b4-3a6ade85aefd  (prompt_len=929, waiting=1)
+INFO:     127.0.0.1:47282 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:19 INFO     miniengine.scheduler  Finished request #295 c45e78b1-2766-4d69-b96d-2fa94fbe1824  (output_len=383, running=16, waiting=0)
+23:43:19 INFO     miniengine.scheduler  Enqueued request 13bab8f2-5e58-4b3c-a1ae-b6196b7e72f2  (prompt_len=802, waiting=1)
+INFO:     127.0.0.1:47298 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:21 INFO     miniengine.scheduler  Finished request #296 eb665de2-bb4d-445c-85dc-566bf42ea544  (output_len=442, running=16, waiting=0)
+23:43:21 INFO     miniengine.scheduler  Enqueued request 8fbe4786-87fb-43a0-ace2-57e90f081a0c  (prompt_len=800, waiting=1)
+INFO:     127.0.0.1:47242 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:21 INFO     miniengine.scheduler  Finished request #297 96ad0e4e-8ce2-47e8-ae0a-09b918dd8c94  (output_len=476, running=16, waiting=0)
+23:43:22 INFO     miniengine.scheduler  Enqueued request 7508d524-1dbb-4401-ac44-107a7eb6e9b0  (prompt_len=930, waiting=1)
+INFO:     127.0.0.1:47204 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:24 INFO     miniengine.scheduler  Finished request #298 99a4fd74-0e71-4c94-82ac-fc72277fa24c  (output_len=439, running=16, waiting=0)
+23:43:24 INFO     miniengine.scheduler  Enqueued request 060df32f-f933-4e67-8da5-8b673f95393c  (prompt_len=545, waiting=1)
+INFO:     127.0.0.1:47194 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:27 INFO     miniengine.scheduler  Finished request #299 3cacae6f-187a-45ea-9364-a35cfd459017  (output_len=124, running=16, waiting=0)
+23:43:27 INFO     miniengine.scheduler  Enqueued request e13b8c32-893c-43d5-8bcf-790a2ebf372a  (prompt_len=782, waiting=1)
+INFO:     127.0.0.1:47236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:29 INFO     miniengine.scheduler  Finished request #300 a96b2c58-e6d2-45a4-8a38-5412decb9dc9  (output_len=347, running=16, waiting=0)
+23:43:29 INFO     miniengine.scheduler  Enqueued request b1d2b54f-84a5-499d-a44c-ca878f01fb56  (prompt_len=787, waiting=1)
+INFO:     127.0.0.1:47308 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:30 INFO     miniengine.scheduler  Finished request #301 3094540e-0f15-4b92-aa34-80b48aff2b6f  (output_len=275, running=16, waiting=0)
+23:43:30 INFO     miniengine.scheduler  Enqueued request 5e669e32-feb8-4fd0-b8c9-c4d8c2fbca20  (prompt_len=627, waiting=1)
+INFO:     127.0.0.1:47220 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:31 INFO     miniengine.scheduler  Finished request #302 7508d524-1dbb-4401-ac44-107a7eb6e9b0  (output_len=94, running=16, waiting=0)
+23:43:31 INFO     miniengine.scheduler  Enqueued request 3b8ffc80-a340-460e-8895-a3a7430b23cc  (prompt_len=865, waiting=1)
+INFO:     127.0.0.1:47204 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:32 INFO     miniengine.scheduler  Finished request #303 49e5e69d-b086-4b68-b4f5-35219addd5b6  (output_len=437, running=16, waiting=0)
+23:43:32 INFO     miniengine.scheduler  Enqueued request 747df43b-d4f3-4013-86e3-2146bc7a55c9  (prompt_len=958, waiting=1)
+INFO:     127.0.0.1:47264 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:33 INFO     miniengine.scheduler  Finished request #304 c1449bba-c907-4f60-b509-0cdf86f80073  (output_len=311, running=16, waiting=0)
+23:43:33 INFO     miniengine.scheduler  Enqueued request 17c85480-b2db-4f46-8858-564f65c908f6  (prompt_len=912, waiting=1)
+INFO:     127.0.0.1:47176 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:43:36 INFO     miniengine.scheduler  Finished request #305 12cdc3a0-7ed3-4f84-b803-f8cac25fb1e9  (output_len=453, running=16, waiting=0)
+23:43:39 INFO     miniengine.scheduler  Finished request #306 3fdee0c0-08c0-49f3-aa20-549f28d575f1  (output_len=392, running=15, waiting=0)
+23:43:45 INFO     miniengine.scheduler  Finished request #307 17082a62-fe8f-489f-b8bb-097410c21d9e  (output_len=466, running=14, waiting=0)
+23:43:45 INFO     miniengine.scheduler  Finished request #308 13bab8f2-5e58-4b3c-a1ae-b6196b7e72f2  (output_len=291, running=13, waiting=0)
+23:43:46 INFO     miniengine.scheduler  Finished request #309 e13b8c32-893c-43d5-8bcf-790a2ebf372a  (output_len=215, running=12, waiting=0)
+23:43:48 INFO     miniengine.scheduler  Finished request #310 d6cf4d6e-4356-4ef5-86f2-74cb65ac0bf9  (output_len=370, running=11, waiting=0)
+23:43:50 INFO     miniengine.scheduler  Finished request #311 331c8f40-998b-4d56-9c58-87be7125e1c3  (output_len=412, running=10, waiting=0)
+23:43:50 INFO     miniengine.scheduler  Finished request #312 a8a3f35f-e7a3-4273-9b83-6aacfaef2de2  (output_len=491, running=9, waiting=0)
+23:43:51 INFO     miniengine.scheduler  Finished request #313 060df32f-f933-4e67-8da5-8b673f95393c  (output_len=315, running=8, waiting=0)
+23:43:53 INFO     miniengine.scheduler  Finished request #314 b1d2b54f-84a5-499d-a44c-ca878f01fb56  (output_len=275, running=7, waiting=0)
+23:43:53 INFO     miniengine.scheduler  Finished request #315 17c85480-b2db-4f46-8858-564f65c908f6  (output_len=254, running=6, waiting=0)
+23:43:53 INFO     miniengine.scheduler  Finished request #316 af20e866-f6b1-4fc6-a1b4-3a6ade85aefd  (output_len=424, running=5, waiting=0)
+23:43:57 INFO     miniengine.scheduler  Finished request #317 747df43b-d4f3-4013-86e3-2146bc7a55c9  (output_len=315, running=4, waiting=0)
+23:43:58 INFO     miniengine.scheduler  Finished request #318 8fbe4786-87fb-43a0-ace2-57e90f081a0c  (output_len=435, running=3, waiting=0)
+23:44:03 INFO     miniengine.scheduler  Finished request #319 3b8ffc80-a340-460e-8895-a3a7430b23cc  (output_len=416, running=2, waiting=0)
+23:44:07 INFO     miniengine.scheduler  Finished request #320 5e669e32-feb8-4fd0-b8c9-c4d8c2fbca20  (output_len=478, running=1, waiting=0)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 7448618c-d83e-44a4-999e-1e8e0d7a0bb3  (prompt_len=791, waiting=1)
+INFO:     127.0.0.1:56898 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:07 INFO     miniengine.scheduler  Enqueued request 9d2d61f3-165a-4b6e-9d7e-656bb8693eac  (prompt_len=563, waiting=2)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 7030ccfb-9f64-4693-a036-28e838200cf0  (prompt_len=629, waiting=3)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 9aa01950-06f0-46e3-baf8-72a610e6912d  (prompt_len=856, waiting=1)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 71d9227d-9036-41fc-aaf4-60ca841d846f  (prompt_len=764, waiting=2)
+23:44:07 INFO     miniengine.scheduler  Enqueued request b33b29ce-1e32-4bcb-b0ac-d9c17e60e4ca  (prompt_len=787, waiting=3)
+23:44:07 INFO     miniengine.scheduler  Enqueued request a0cd070f-71b6-4dc5-a3e2-cf3da8d0c03a  (prompt_len=527, waiting=4)
+23:44:07 INFO     miniengine.scheduler  Enqueued request d96abd39-3bf9-401b-950e-eb8f13bad720  (prompt_len=786, waiting=5)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 1f8a3f55-50c4-4534-9e6c-15e43e06b163  (prompt_len=618, waiting=6)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 45f1a00f-ff33-4d4b-a33f-df25744216ae  (prompt_len=787, waiting=7)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 910183e5-c0b5-4893-b196-fa2ffc580cc9  (prompt_len=521, waiting=8)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 141a0fd9-bdbe-49fb-981b-ea20af1ae1e9  (prompt_len=982, waiting=9)
+23:44:07 INFO     miniengine.scheduler  Enqueued request e3d633da-2c82-408e-a795-07dc400c9339  (prompt_len=967, waiting=10)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 1b7ea89f-8e96-441c-a30f-290b5d25db06  (prompt_len=650, waiting=11)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 1c9f9a8c-238e-418d-98ee-ab19c2e79cca  (prompt_len=598, waiting=12)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 3aeeb02b-685b-4307-9d21-a0bf3d9ee575  (prompt_len=988, waiting=13)
+23:44:07 INFO     miniengine.scheduler  Enqueued request bea856db-5a40-41a2-9042-b1b5c931b4d3  (prompt_len=589, waiting=14)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 12fc6bac-1e39-44c4-b0eb-af03c9dd4e3a  (prompt_len=572, waiting=15)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 1a390a7e-6b9d-45b6-ada7-148563dbc783  (prompt_len=870, waiting=16)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 3de1e619-c906-438c-a6b7-cc78d8151139  (prompt_len=808, waiting=17)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 79e5d31f-6ca8-4d61-95be-eb77b0f5eef2  (prompt_len=1013, waiting=18)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 25492357-0356-498e-bccf-22ed499ee54e  (prompt_len=552, waiting=19)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 7d7061e2-727c-449c-bae7-9c155f4ceced  (prompt_len=950, waiting=20)
+23:44:07 INFO     miniengine.scheduler  Enqueued request ffa619d9-343d-4c75-bdbf-8b17af64096d  (prompt_len=727, waiting=21)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 866250fc-d989-4da1-b5be-aeb916bea7ef  (prompt_len=967, waiting=22)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 773182ff-7501-4407-b3af-e0836295e377  (prompt_len=634, waiting=23)
+23:44:07 INFO     miniengine.scheduler  Enqueued request fa3e66de-2a21-4429-99af-6df1a58fbc8a  (prompt_len=947, waiting=24)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 27f1a2bc-282e-4d3b-b055-ff3515a98ad9  (prompt_len=792, waiting=25)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 546bb888-1be0-466b-8192-d878c0cb1412  (prompt_len=732, waiting=26)
+23:44:07 INFO     miniengine.scheduler  Enqueued request c76d7d6a-f50f-4e91-9a14-041effcae064  (prompt_len=785, waiting=27)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 3c828473-b42f-4e4c-a662-584519edb120  (prompt_len=844, waiting=28)
+23:44:07 INFO     miniengine.scheduler  Enqueued request 7457a726-1bc5-48e9-abec-14ac62c9e0d7  (prompt_len=760, waiting=29)
+INFO:     127.0.0.1:56902 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56912 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56930 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56938 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56948 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56950 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56966 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56970 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56980 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56992 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56994 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56998 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57002 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57004 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57014 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57016 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57026 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57038 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57054 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57070 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57074 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57076 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57082 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57096 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57112 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57114 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57130 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57134 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57148 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57154 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:15 INFO     miniengine.scheduler  Finished request #321 141a0fd9-bdbe-49fb-981b-ea20af1ae1e9  (output_len=52, running=16, waiting=16)
+23:44:16 INFO     miniengine.scheduler  Enqueued request b53b6a50-2bc2-4672-ba63-b5ed81859abc  (prompt_len=590, waiting=16)
+INFO:     127.0.0.1:56992 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:23 INFO     miniengine.scheduler  Finished request #322 9aa01950-06f0-46e3-baf8-72a610e6912d  (output_len=140, running=16, waiting=16)
+23:44:23 INFO     miniengine.scheduler  Enqueued request 35f9aba6-99de-4255-aec5-09089f29e0ac  (prompt_len=548, waiting=16)
+INFO:     127.0.0.1:56922 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:29 INFO     miniengine.scheduler  Finished request #323 b33b29ce-1e32-4bcb-b0ac-d9c17e60e4ca  (output_len=216, running=16, waiting=16)
+23:44:29 INFO     miniengine.scheduler  Enqueued request 268f2e95-caae-429c-8a45-7a505ad9705f  (prompt_len=665, waiting=16)
+INFO:     127.0.0.1:56938 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:32 INFO     miniengine.scheduler  Finished request #324 1f8a3f55-50c4-4534-9e6c-15e43e06b163  (output_len=252, running=16, waiting=16)
+23:44:32 INFO     miniengine.scheduler  Enqueued request 9d36747d-dc8b-4279-87a5-3b1938de245a  (prompt_len=647, waiting=16)
+INFO:     127.0.0.1:56966 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:33 INFO     miniengine.scheduler  Finished request #325 9d2d61f3-165a-4b6e-9d7e-656bb8693eac  (output_len=257, running=16, waiting=16)
+23:44:33 INFO     miniengine.scheduler  Enqueued request eabc8592-25a7-4dc1-89ce-e0373425325b  (prompt_len=829, waiting=16)
+INFO:     127.0.0.1:56902 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:37 INFO     miniengine.scheduler  Finished request #326 d96abd39-3bf9-401b-950e-eb8f13bad720  (output_len=301, running=16, waiting=16)
+23:44:37 INFO     miniengine.scheduler  Enqueued request 061ee79c-5344-49f4-97fd-cddb4812e9e4  (prompt_len=555, waiting=16)
+INFO:     127.0.0.1:56950 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:37 INFO     miniengine.scheduler  Finished request #327 3aeeb02b-685b-4307-9d21-a0bf3d9ee575  (output_len=307, running=16, waiting=16)
+23:44:38 INFO     miniengine.scheduler  Enqueued request b80ee14e-6ae7-4a43-ad67-9e0d507e50f9  (prompt_len=731, waiting=16)
+INFO:     127.0.0.1:57004 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:38 INFO     miniengine.scheduler  Finished request #328 bea856db-5a40-41a2-9042-b1b5c931b4d3  (output_len=260, running=16, waiting=16)
+23:44:38 INFO     miniengine.scheduler  Enqueued request 04b9ffb4-41a9-4913-a236-1c163392c287  (prompt_len=617, waiting=16)
+INFO:     127.0.0.1:57014 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:39 INFO     miniengine.scheduler  Finished request #329 a0cd070f-71b6-4dc5-a3e2-cf3da8d0c03a  (output_len=313, running=16, waiting=16)
+23:44:39 INFO     miniengine.scheduler  Enqueued request ce0dfecb-6176-4862-abbe-298d29906071  (prompt_len=935, waiting=16)
+INFO:     127.0.0.1:56948 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:40 INFO     miniengine.scheduler  Finished request #330 1a390a7e-6b9d-45b6-ada7-148563dbc783  (output_len=109, running=16, waiting=16)
+23:44:40 INFO     miniengine.scheduler  Enqueued request 45a73959-41f9-4255-a386-0366cc4fba41  (prompt_len=754, waiting=16)
+INFO:     127.0.0.1:57026 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:41 INFO     miniengine.scheduler  Finished request #331 7030ccfb-9f64-4693-a036-28e838200cf0  (output_len=335, running=16, waiting=16)
+23:44:41 INFO     miniengine.scheduler  Enqueued request 32a65f42-2ed8-4632-8965-b170a1548d11  (prompt_len=701, waiting=16)
+INFO:     127.0.0.1:56912 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:43 INFO     miniengine.scheduler  Finished request #332 910183e5-c0b5-4893-b196-fa2ffc580cc9  (output_len=357, running=16, waiting=16)
+23:44:43 INFO     miniengine.scheduler  Enqueued request a263f3dd-8e22-4b3b-9000-ac3f1cab29c4  (prompt_len=542, waiting=16)
+INFO:     127.0.0.1:56980 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:44 INFO     miniengine.scheduler  Finished request #333 7448618c-d83e-44a4-999e-1e8e0d7a0bb3  (output_len=362, running=16, waiting=16)
+23:44:44 INFO     miniengine.scheduler  Enqueued request 2832f3e0-2296-4638-b505-4003e71cb434  (prompt_len=856, waiting=16)
+INFO:     127.0.0.1:56898 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:44 INFO     miniengine.scheduler  Finished request #334 1c9f9a8c-238e-418d-98ee-ab19c2e79cca  (output_len=365, running=16, waiting=16)
+23:44:45 INFO     miniengine.scheduler  Finished request #335 ffa619d9-343d-4c75-bdbf-8b17af64096d  (output_len=56, running=16, waiting=15)
+23:44:45 INFO     miniengine.scheduler  Enqueued request bf65691d-f7e3-4476-9f51-21db38c14465  (prompt_len=775, waiting=15)
+INFO:     127.0.0.1:57002 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:45 INFO     miniengine.scheduler  Enqueued request 797343df-2218-4ac1-90bf-563a07c77cd0  (prompt_len=681, waiting=16)
+INFO:     127.0.0.1:57076 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:47 INFO     miniengine.scheduler  Finished request #336 1b7ea89f-8e96-441c-a30f-290b5d25db06  (output_len=397, running=16, waiting=16)
+23:44:47 INFO     miniengine.scheduler  Enqueued request 598c831f-d653-436e-8ee5-668642511b65  (prompt_len=911, waiting=16)
+INFO:     127.0.0.1:56998 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:49 INFO     miniengine.scheduler  Finished request #337 e3d633da-2c82-408e-a795-07dc400c9339  (output_len=410, running=16, waiting=16)
+23:44:49 INFO     miniengine.scheduler  Enqueued request 08fbeabe-8857-4562-9abb-c4920155f290  (prompt_len=996, waiting=16)
+INFO:     127.0.0.1:56994 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:52 INFO     miniengine.scheduler  Finished request #338 12fc6bac-1e39-44c4-b0eb-af03c9dd4e3a  (output_len=303, running=16, waiting=16)
+23:44:52 INFO     miniengine.scheduler  Enqueued request 4060e2a8-a68c-4e0a-9a48-a0efe1d89c35  (prompt_len=725, waiting=16)
+INFO:     127.0.0.1:57016 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:52 INFO     miniengine.scheduler  Finished request #339 71d9227d-9036-41fc-aaf4-60ca841d846f  (output_len=445, running=16, waiting=16)
+23:44:52 INFO     miniengine.scheduler  Enqueued request 73e06668-8d47-4c5f-9175-3e88a4d15b89  (prompt_len=873, waiting=16)
+INFO:     127.0.0.1:56930 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:53 INFO     miniengine.scheduler  Finished request #340 45f1a00f-ff33-4d4b-a33f-df25744216ae  (output_len=458, running=16, waiting=16)
+23:44:53 INFO     miniengine.scheduler  Enqueued request d6017eed-687d-4ddd-b733-6cdae674cc5b  (prompt_len=749, waiting=16)
+INFO:     127.0.0.1:56970 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:44:57 INFO     miniengine.scheduler  Finished request #341 b53b6a50-2bc2-4672-ba63-b5ed81859abc  (output_len=85, running=16, waiting=16)
+23:44:57 INFO     miniengine.scheduler  Enqueued request 3128be23-63bb-40ed-a940-facd5e1a4887  (prompt_len=540, waiting=16)
+INFO:     127.0.0.1:56992 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:00 INFO     miniengine.scheduler  Finished request #342 79e5d31f-6ca8-4d61-95be-eb77b0f5eef2  (output_len=272, running=16, waiting=16)
+23:45:00 INFO     miniengine.scheduler  Enqueued request 0a43db15-b93c-473b-81a8-8791d0c269a8  (prompt_len=929, waiting=16)
+INFO:     127.0.0.1:57054 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:04 INFO     miniengine.scheduler  Finished request #343 27f1a2bc-282e-4d3b-b055-ff3515a98ad9  (output_len=223, running=16, waiting=16)
+23:45:04 INFO     miniengine.scheduler  Enqueued request 5e6c642d-3d69-4e39-9f21-a218ee96f891  (prompt_len=802, waiting=16)
+INFO:     127.0.0.1:57114 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:05 INFO     miniengine.scheduler  Finished request #344 3de1e619-c906-438c-a6b7-cc78d8151139  (output_len=336, running=16, waiting=16)
+23:45:05 INFO     miniengine.scheduler  Enqueued request 1a43f721-a792-4759-bbf5-4c1af467019a  (prompt_len=800, waiting=16)
+INFO:     127.0.0.1:57038 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:06 INFO     miniengine.scheduler  Finished request #345 25492357-0356-498e-bccf-22ed499ee54e  (output_len=297, running=16, waiting=16)
+23:45:07 INFO     miniengine.scheduler  Enqueued request e246f676-4da6-41ae-af41-eb217707a439  (prompt_len=930, waiting=16)
+INFO:     127.0.0.1:57070 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:15 INFO     miniengine.scheduler  Finished request #346 c76d7d6a-f50f-4e91-9a14-041effcae064  (output_len=338, running=16, waiting=16)
+23:45:15 INFO     miniengine.scheduler  Enqueued request af66b5ff-9a1b-4cc5-b902-6bdf46a88bb8  (prompt_len=545, waiting=16)
+INFO:     127.0.0.1:57134 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:16 INFO     miniengine.scheduler  Finished request #347 773182ff-7501-4407-b3af-e0836295e377  (output_len=382, running=16, waiting=16)
+23:45:16 INFO     miniengine.scheduler  Enqueued request 4a70a63e-aa16-4bd8-a6f4-b8a5123e50c1  (prompt_len=782, waiting=16)
+INFO:     127.0.0.1:57096 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:16 INFO     miniengine.scheduler  Finished request #348 7457a726-1bc5-48e9-abec-14ac62c9e0d7  (output_len=313, running=16, waiting=16)
+23:45:17 INFO     miniengine.scheduler  Enqueued request d94987bf-2be0-422b-a8a2-df8ef6e2ce2b  (prompt_len=787, waiting=16)
+INFO:     127.0.0.1:57154 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:18 INFO     miniengine.scheduler  Finished request #349 7d7061e2-727c-449c-bae7-9c155f4ceced  (output_len=417, running=16, waiting=16)
+23:45:18 INFO     miniengine.scheduler  Enqueued request b33bdc47-7526-4697-9ba7-e33fb8748ee0  (prompt_len=627, waiting=16)
+INFO:     127.0.0.1:57074 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:18 INFO     miniengine.scheduler  Finished request #350 fa3e66de-2a21-4429-99af-6df1a58fbc8a  (output_len=397, running=16, waiting=16)
+23:45:19 INFO     miniengine.scheduler  Enqueued request 2209bfec-8e9e-447f-bfbd-ea337c6dd7ae  (prompt_len=865, waiting=16)
+INFO:     127.0.0.1:57112 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:19 INFO     miniengine.scheduler  Finished request #351 9d36747d-dc8b-4279-87a5-3b1938de245a  (output_len=277, running=16, waiting=16)
+23:45:19 INFO     miniengine.scheduler  Enqueued request b340ab1a-add6-4822-9b50-9a9b7651aeab  (prompt_len=958, waiting=16)
+INFO:     127.0.0.1:56966 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:20 INFO     miniengine.scheduler  Finished request #352 3c828473-b42f-4e4c-a662-584519edb120  (output_len=378, running=16, waiting=16)
+23:45:21 INFO     miniengine.scheduler  Enqueued request 2f18fd17-7346-42df-960d-fc2b97d202f9  (prompt_len=912, waiting=16)
+INFO:     127.0.0.1:57148 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+23:45:24 INFO     miniengine.scheduler  Finished request #353 866250fc-d989-4da1-b5be-aeb916bea7ef  (output_len=474, running=16, waiting=16)
+23:45:25 INFO     miniengine.scheduler  Finished request #354 546bb888-1be0-466b-8192-d878c0cb1412  (output_len=431, running=16, waiting=15)
+23:45:25 INFO     miniengine.scheduler  Finished request #355 ce0dfecb-6176-4862-abbe-298d29906071  (output_len=201, running=16, waiting=14)
+23:45:30 INFO     miniengine.scheduler  Finished request #356 35f9aba6-99de-4255-aec5-09089f29e0ac  (output_len=410, running=16, waiting=13)
+23:45:31 INFO     miniengine.scheduler  Finished request #357 08fbeabe-8857-4562-9abb-c4920155f290  (output_len=77, running=16, waiting=12)
+23:45:36 INFO     miniengine.scheduler  Finished request #358 268f2e95-caae-429c-8a45-7a505ad9705f  (output_len=476, running=16, waiting=11)
+23:45:38 INFO     miniengine.scheduler  Finished request #359 eabc8592-25a7-4dc1-89ce-e0373425325b  (output_len=442, running=16, waiting=10)
+23:45:39 INFO     miniengine.scheduler  Finished request #360 45a73959-41f9-4255-a386-0366cc4fba41  (output_len=243, running=16, waiting=9)
+23:45:41 INFO     miniengine.scheduler  Finished request #361 b80ee14e-6ae7-4a43-ad67-9e0d507e50f9  (output_len=383, running=16, waiting=8)
+23:45:41 INFO     miniengine.scheduler  Finished request #362 061ee79c-5344-49f4-97fd-cddb4812e9e4  (output_len=439, running=16, waiting=7)
+23:45:43 INFO     miniengine.scheduler  Finished request #363 3128be23-63bb-40ed-a940-facd5e1a4887  (output_len=124, running=16, waiting=6)
+23:45:46 INFO     miniengine.scheduler  Finished request #364 598c831f-d653-436e-8ee5-668642511b65  (output_len=275, running=16, waiting=5)
+23:45:47 INFO     miniengine.scheduler  Finished request #365 04b9ffb4-41a9-4913-a236-1c163392c287  (output_len=437, running=16, waiting=4)
+23:45:49 INFO     miniengine.scheduler  Finished request #366 797343df-2218-4ac1-90bf-563a07c77cd0  (output_len=311, running=16, waiting=3)
+23:45:50 INFO     miniengine.scheduler  Finished request #367 e246f676-4da6-41ae-af41-eb217707a439  (output_len=94, running=16, waiting=2)
+23:45:51 INFO     miniengine.scheduler  Finished request #368 a263f3dd-8e22-4b3b-9000-ac3f1cab29c4  (output_len=347, running=16, waiting=1)
+23:45:56 INFO     miniengine.scheduler  Finished request #369 bf65691d-f7e3-4476-9f51-21db38c14465  (output_len=392, running=16, waiting=0)
+23:45:59 INFO     miniengine.scheduler  Finished request #370 32a65f42-2ed8-4632-8965-b170a1548d11  (output_len=451, running=15, waiting=0)
+23:46:02 INFO     miniengine.scheduler  Finished request #371 2832f3e0-2296-4638-b505-4003e71cb434  (output_len=466, running=14, waiting=0)
+23:46:03 INFO     miniengine.scheduler  Finished request #372 4a70a63e-aa16-4bd8-a6f4-b8a5123e50c1  (output_len=215, running=13, waiting=0)
+23:46:03 INFO     miniengine.scheduler  Finished request #373 73e06668-8d47-4c5f-9175-3e88a4d15b89  (output_len=412, running=12, waiting=0)
+23:46:04 INFO     miniengine.scheduler  Finished request #374 d6017eed-687d-4ddd-b733-6cdae674cc5b  (output_len=370, running=11, waiting=0)
+23:46:05 INFO     miniengine.scheduler  Finished request #375 5e6c642d-3d69-4e39-9f21-a218ee96f891  (output_len=291, running=10, waiting=0)
+23:46:09 INFO     miniengine.scheduler  Finished request #376 af66b5ff-9a1b-4cc5-b902-6bdf46a88bb8  (output_len=315, running=9, waiting=0)
+23:46:09 INFO     miniengine.scheduler  Finished request #377 4060e2a8-a68c-4e0a-9a48-a0efe1d89c35  (output_len=491, running=8, waiting=0)
+23:46:10 INFO     miniengine.scheduler  Finished request #378 d94987bf-2be0-422b-a8a2-df8ef6e2ce2b  (output_len=275, running=7, waiting=0)
+23:46:11 INFO     miniengine.scheduler  Finished request #379 2f18fd17-7346-42df-960d-fc2b97d202f9  (output_len=254, running=6, waiting=0)
+23:46:14 INFO     miniengine.scheduler  Finished request #380 0a43db15-b93c-473b-81a8-8791d0c269a8  (output_len=424, running=5, waiting=0)
+23:46:16 INFO     miniengine.scheduler  Finished request #381 b340ab1a-add6-4822-9b50-9a9b7651aeab  (output_len=315, running=4, waiting=0)
+23:46:16 INFO     miniengine.scheduler  Finished request #382 1a43f721-a792-4759-bbf5-4c1af467019a  (output_len=435, running=3, waiting=0)
+23:46:22 INFO     miniengine.scheduler  Finished request #383 2209bfec-8e9e-447f-bfbd-ea337c6dd7ae  (output_len=416, running=2, waiting=0)
+23:46:25 INFO     miniengine.scheduler  Finished request #384 b33bdc47-7526-4697-9ba7-e33fb8748ee0  (output_len=478, running=1, waiting=0)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [4786]

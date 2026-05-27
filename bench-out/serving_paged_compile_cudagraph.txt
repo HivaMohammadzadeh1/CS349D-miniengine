@@ -1,0 +1,55 @@
+  Auto-detected model: Qwen/Qwen3-8B
+
+============================================================
+  Serving Benchmark
+  Server       : http://localhost:8000
+  Model        : Qwen/Qwen3-8B
+  Requests     : 64 (per concurrency)
+  Input len    : 1024
+  Output len   : 512
+  Randomness   : 0.5
+  Concurrencies: [1, 2, 4, 8, 16, 32]
+============================================================
+
+  Loading tokenizer...
+/opt/pytorch/lib/python3.12/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  Loading WildChat prompts...
+  Loaded 320 candidate prompts
+  Preparing 64 requests...
+  Input lengths:  min=521, max=1013, mean=758
+  Output lengths: min=257, max=491, mean=374
+
+  Running concurrency=1 (64 requests)...
+    [  1/64] ok in=760 out=312 ttft=287ms compl=20402ms (elapsed 20.4s)
+    [  2/64] ok in=634 out=382 ttft=283ms compl=24850ms (elapsed 45.3s)
+    [  3/64] ok in=552 out=297 ttft=260ms compl=19340ms (elapsed 64.6s)
+    [  4/64] ok in=950 out=417 ttft=359ms compl=27365ms (elapsed 92.0s)
+    [  5/64] ok in=786 out=300 ttft=297ms compl=19708ms (elapsed 111.7s)
+    [  6/64] ok in=833 out=378 ttft=306ms compl=24734ms (elapsed 136.4s)
+    [  7/64] ok in=787 out=458 ttft=292ms compl=29896ms (elapsed 166.3s)
+    [  8/64] ok in=650 out=369 ttft=266ms compl=24096ms (elapsed 190.4s)
+    [  9/64] ok in=982 out=51 ttft=365ms compl=3669ms (elapsed 194.1s)
+    [ 10/64] ok in=589 out=260 ttft=274ms compl=16969ms (elapsed 211.0s)
+    [ 11/64] ok in=988 out=307 ttft=367ms compl=20232ms (elapsed 231.3s)
+    [ 12/64] ok in=587 out=365 ttft=283ms compl=23765ms (elapsed 255.0s)
+    [ 13/64] ok in=792 out=222 ttft=300ms compl=14653ms (elapsed 269.7s)
+    [ 14/64] ok in=870 out=108 ttft=309ms compl=7296ms (elapsed 277.0s)
+    [ 15/64] ok in=764 out=445 ttft=290ms compl=29041ms (elapsed 306.0s)
+    [ 16/64] ok in=808 out=336 ttft=300ms compl=21979ms (elapsed 328.0s)
+    [ 17/64] ok in=967 out=410 ttft=361ms compl=26905ms (elapsed 354.9s)
+    [ 18/64] ok in=521 out=356 ttft=266ms compl=23206ms (elapsed 378.1s)
+    [ 19/64] ok in=618 out=251 ttft=287ms compl=16477ms (elapsed 394.6s)
+    [ 20/64] ok in=787 out=215 ttft=292ms compl=14194ms (elapsed 408.8s)
+    [ 21/64] ok in=629 out=335 ttft=289ms compl=21856ms (elapsed 430.6s)
+    [ 22/64] ok in=791 out=317 ttft=300ms compl=20806ms (elapsed 451.4s)
+    [ 23/64] ok in=732 out=431 ttft=283ms compl=28082ms (elapsed 479.5s)
+    [ 24/64] ok in=727 out=55 ttft=285ms compl=3833ms (elapsed 483.4s)
+    [ 25/64] ok in=1013 out=271 ttft=375ms compl=17935ms (elapsed 501.3s)
+    [ 26/64] ok in=572 out=303 ttft=276ms compl=19681ms (elapsed 521.0s)
+    [ 27/64] ok in=947 out=397 ttft=350ms compl=25963ms (elapsed 546.9s)
+    [ 28/64] ok in=563 out=257 ttft=273ms compl=16740ms (elapsed 563.7s)
+    [ 29/64] ok in=856 out=139 ttft=302ms compl=9295ms (elapsed 573.0s)
+    [ 30/64] ok in=785 out=338 ttft=290ms compl=22108ms (elapsed 595.1s)
+    [ 31/64] ok in=967 out=474 ttft=362ms compl=31023ms (elapsed 626.1s)
