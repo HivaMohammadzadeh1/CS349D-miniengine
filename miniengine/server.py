@@ -77,7 +77,8 @@ async def cache_stats():
         return {"enabled": False}
     m = cache.metrics
     pool = engine.pool
-    return {
+    cpu_pool = getattr(cache, "cpu_pool", None)
+    stats = {
         "enabled": True,
         "hit_rate": m.hit_rate,
         "total_lookups": m.total_lookups,
@@ -89,6 +90,19 @@ async def cache_stats():
         "pool_num_free": pool.num_free if pool is not None else 0,
         "pool_num_evictable": getattr(pool, "num_evictable", 0),
     }
+    # ── HiCache (milestone 4) — only present when the CPU tier is wired up.
+    if cpu_pool is not None:
+        stats["hicache"] = {
+            "cpu_pool_capacity": cpu_pool.capacity,
+            "cpu_pool_num_free": cpu_pool.num_free,
+            "cpu_pool_pinned": cpu_pool.is_pinned,
+            "total_demoted_pages": m.total_demoted_pages,
+            "total_promoted_pages": m.total_promoted_pages,
+            "total_cpu_evicted_pages": m.total_cpu_evicted_pages,
+            "total_demote_time_ms": m.total_demote_time_ms,
+            "total_promote_time_ms": m.total_promote_time_ms,
+        }
+    return stats
 
 
 @app.get("/v1/models")
