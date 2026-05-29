@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from miniengine.cpu_kv_pool import CpuKvPool
     from miniengine.kv_memory_pool import KVMemoryPool
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,18 @@ class CacheMetrics:
     total_hit_tokens: int = 0
     total_inserted_pages: int = 0
     total_evicted_pages: int = 0
+    # ── Milestone 4 (HiCache) ──────────────────────────────────────────────
+    # Pages demoted GPU→CPU (kept in tree, colder tier).
+    total_demoted_pages: int = 0
+    # Pages promoted CPU→GPU on a hit.
+    total_promoted_pages: int = 0
+    # CPU-tier nodes dropped entirely when the CPU pool overflows.
+    total_cpu_evicted_pages: int = 0
+    # Wall time (ms) spent in demote/promote indexed copies. In blocking
+    # mode that's the synchronous copy time; in --hicache-overlap mode it's
+    # the event-measured GPU copy-stream time.
+    total_demote_time_ms: float = 0.0
+    total_promote_time_ms: float = 0.0
 
     @property
     def hit_rate(self) -> float:
@@ -64,9 +77,19 @@ class RadixNode:
     Edge layout: ``key`` carries the tokens on the edge from the parent;
     ``pages`` carries the KV pages corresponding to ``key`` (one page per
     ``page_size`` tokens; both are page-aligned by construction).
+
+    Tier (milestone 4 — HiCache)
+        ``tier`` is ``"gpu"`` when ``pages`` are indices into the GPU
+        :class:`KVMemoryPool`, ``"cpu"`` when they are slot indices into the
+        host-side :class:`CpuKvPool`. A node's pages live entirely in one
+        tier (page granularity, single-tier per node — no mixing). The field
+        defaults to ``"gpu"``; when ``RadixCache.cpu_pool is None`` it stays
+        ``"gpu"`` forever and behavior is byte-identical to milestone 3.
     """
 
-    __slots__ = ("parent", "children", "key", "pages", "ref_count", "last_access")
+    __slots__ = (
+        "parent", "children", "key", "pages", "ref_count", "last_access", "tier",
+    )
 
     def __init__(self) -> None:
         self.parent: RadixNode | None = None
@@ -77,6 +100,7 @@ class RadixNode:
         self.pages: list[int] = []
         self.ref_count: int = 0
         self.last_access: float = time.monotonic()
+        self.tier: str = "gpu"
 
 
 @dataclass
@@ -102,7 +126,11 @@ class RadixCache:
     ``inc_lock_ref`` / ``dec_lock_ref`` pinning for in-flight matches.
     """
 
-    def __init__(self, pool: "KVMemoryPool") -> None:
+    def __init__(
+        self,
+        pool: "KVMemoryPool",
+        cpu_pool: "CpuKvPool | None" = None,
+    ) -> None:
         self.pool = pool
         self.page_size = pool.page_size
         self.root = RadixNode()
@@ -110,6 +138,12 @@ class RadixCache:
         self._num_cached_pages = 0
         # Tie-breaker for heap entries with equal last_access timestamps.
         self._heap_seq = itertools.count()
+        # ── Milestone 4 (HiCache) ──────────────────────────────────────────
+        # When ``cpu_pool`` is provided, GPU eviction *demotes* into it
+        # instead of dropping; on a hit, the engine calls
+        # :meth:`promote_match` to lift CPU-resident nodes back to GPU.
+        # ``cpu_pool is None`` keeps every code path byte-identical to m3.
+        self.cpu_pool: "CpuKvPool | None" = cpu_pool
 
     # ── Introspection ──────────────────────────────────────────────────
 
@@ -119,13 +153,23 @@ class RadixCache:
         return self._num_cached_pages
 
     def num_evictable_pages(self) -> int:
-        """Pages that an LRU sweep could free right now."""
+        """GPU pages that an LRU sweep could reclaim right now.
+
+        With HiCache enabled, only *GPU-tier* leaves are counted — CPU-tier
+        leaves hold no GPU pages, so they cannot satisfy a GPU shortage
+        directly (their slots can be freed in the CPU pool, but that only
+        makes room for a subsequent demote). The GPU pool's
+        ``num_evictable`` query is exactly this number.
+        """
         total = 0
         for node in self._walk():
             if node is self.root:
                 continue
-            if self._is_evictable(node):
-                total += len(node.pages)
+            if not self._is_evictable(node):
+                continue
+            if self.cpu_pool is not None and node.tier != "gpu":
+                continue
+            total += len(node.pages)
         return total
 
     def _walk(self):
@@ -301,6 +345,12 @@ class RadixCache:
             split.key = child.key[:edge_off]
             split.pages = child.pages[: edge_off // ps]
             split.last_access = now
+            # Inherit the original child's tier — split.pages are sliced from
+            # child.pages, so they live in the same pool. Without this,
+            # CPU-tier child pages would be mis-tagged as GPU and the next
+            # GPU eviction would try to free them via the GPU pool. Identity
+            # for m3 (every node is "gpu" anyway).
+            split.tier = child.tier
             # Re-parent the tail of the original child under the split.
             old_child_first_page = page_key   # before mutating child.key
             child.key = child.key[edge_off:]
@@ -337,62 +387,276 @@ class RadixCache:
     # ── Eviction ───────────────────────────────────────────────────────
 
     def evict(self, n_pages_needed: int) -> int:
-        """LRU-evict at least ``n_pages_needed`` pages (best effort).
+        """LRU-reclaim at least ``n_pages_needed`` GPU pages (best effort).
 
-        Walks evictable leaves (no children, ref_count == 0) oldest-first.
-        After freeing a leaf, its parent may become a leaf — push it back
-        onto the heap if it is also unlocked.
+        Plain m3 mode (``cpu_pool is None``): evictable leaves are dropped
+        and their pages returned to the GPU pool.
 
-        Returns the number actually freed.
+        HiCache mode (``cpu_pool`` set): each LRU-selected *GPU-tier* leaf
+        is **demoted** to the CPU tier instead — its KV is copied D2H, the
+        GPU pages are returned to the pool, and the node stays in the tree
+        marked ``tier="cpu"``. If the CPU pool is too full and
+        :meth:`_cpu_evict` can't make room either, we fall back to dropping
+        the node entirely (m3 behavior) so eviction always makes progress.
+
+        Returns the number of GPU pages actually freed.
         """
         if n_pages_needed <= 0:
             return 0
 
-        # Min-heap of (last_access, seq, node) over current evictable leaves.
+        hicache = self.cpu_pool is not None
+
+        # Min-heap of (last_access, seq, node) over current GPU-evictable
+        # leaves. With HiCache on, CPU-tier nodes hold no GPU pages so
+        # they're skipped here (the CPU tier has its own LRU in _cpu_evict).
         heap: list[tuple[float, int, RadixNode]] = []
         for node in self._walk():
             if node is self.root:
                 continue
-            if self._is_evictable(node):
-                heapq.heappush(
-                    heap, (node.last_access, next(self._heap_seq), node)
-                )
+            if not self._is_evictable(node):
+                continue
+            if hicache and node.tier != "gpu":
+                continue
+            heapq.heappush(heap, (node.last_access, next(self._heap_seq), node))
 
         freed = 0
         while heap and freed < n_pages_needed:
             _, _, node = heapq.heappop(heap)
             # Re-validate: a re-pushed parent may have re-acquired
-            # children/locks in between heap pushes.
+            # children/locks; a node may have been demoted between pushes.
             if not self._is_evictable(node):
                 continue
-            # Free pages back to pool.
-            if node.pages:
-                self.pool.free(node.pages)
-                freed += len(node.pages)
-                self._num_cached_pages -= len(node.pages)
-                self.metrics.total_evicted_pages += len(node.pages)
+            if hicache and node.tier != "gpu":
+                continue
+            if not node.pages:
+                continue
+
+            page_count = len(node.pages)
+
+            if hicache and self._try_demote(node):
+                # Demoted in place: node stays in the tree as CPU-tier,
+                # its GPU pages were returned to the pool. Parent does NOT
+                # become a leaf (this node is still its child).
+                freed += page_count
+                continue
+
+            # Fall-back / m3 path: drop the node entirely.
+            self.pool.free(node.pages)
+            freed += page_count
+            self._num_cached_pages -= page_count
+            self.metrics.total_evicted_pages += page_count
             parent = node.parent
             if parent is not None:
                 # Detach from parent's children dict (keyed by first page).
                 parent.children.pop(tuple(node.key[: self.page_size]), None)
                 if self._is_evictable(parent) and parent is not self.root:
+                    # Only re-push if the parent is itself a GPU eviction
+                    # candidate (m3: always; HiCache: must be GPU-tier).
+                    if not hicache or parent.tier == "gpu":
+                        heapq.heappush(
+                            heap, (parent.last_access, next(self._heap_seq), parent)
+                        )
+
+        return freed
+
+    # ── HiCache: demote / promote / CPU-tier eviction ──────────────────
+
+    def _try_demote(self, node: "RadixNode") -> bool:
+        """Move ``node``'s pages from GPU to CPU; keep the node in the tree.
+
+        Returns ``True`` on success, ``False`` when the CPU pool can't accept
+        the pages (even after :meth:`_cpu_evict`). On failure the caller
+        falls back to dropping the node.
+        """
+        assert self.cpu_pool is not None
+        assert node.tier == "gpu"
+
+        need = len(node.pages)
+        # Ensure CPU room. If we can't make enough, fail back to caller.
+        if self.cpu_pool.num_free < need:
+            shortfall = need - self.cpu_pool.num_free
+            self._cpu_evict(shortfall)
+        if self.cpu_pool.num_free < need:
+            return False
+
+        # Allocate CPU slots.
+        from miniengine.cpu_kv_pool import CpuKvOutOfMemory
+        try:
+            cpu_slots = self.cpu_pool.allocate(need)
+        except CpuKvOutOfMemory:
+            return False
+
+        # D2H copy of K and V for every layer. Blocking mode — overlap
+        # mode swaps this for an async copy on a dedicated stream (task #11).
+        gpu_pages = node.pages
+        t0 = time.monotonic()
+        gpu_kv = self.pool.kv_caches  # list[(K, V)] per layer
+        cpu_k = self.cpu_pool.k_buffers
+        cpu_v = self.cpu_pool.v_buffers
+        for layer, (k_gpu, v_gpu) in enumerate(gpu_kv):
+            cpu_k[layer][cpu_slots] = k_gpu[gpu_pages].to(cpu_k[layer].device)
+            cpu_v[layer][cpu_slots] = v_gpu[gpu_pages].to(cpu_v[layer].device)
+        self.metrics.total_demote_time_ms += (time.monotonic() - t0) * 1000.0
+
+        # Return GPU pages to the pool and repoint the node.
+        self.pool.free(gpu_pages)
+        node.pages = cpu_slots
+        node.tier = "cpu"
+        self.metrics.total_demoted_pages += need
+        # Demoted pages no longer count as "cached" GPU pages; HiCache
+        # tracks them separately. Keeping _num_cached_pages = GPU pages
+        # only matches what KVMemoryPool can see.
+        self._num_cached_pages -= need
+        return True
+
+    def _cpu_evict(self, n_slots_needed: int) -> int:
+        """LRU-drop CPU-tier leaves to make room for new demotions.
+
+        No lower tier — evicted CPU nodes are removed from the tree entirely
+        (their prefix is lost; a future request matching that prefix will
+        re-prefill from scratch). Returns slots freed.
+        """
+        if n_slots_needed <= 0 or self.cpu_pool is None:
+            return 0
+
+        heap: list[tuple[float, int, RadixNode]] = []
+        for node in self._walk():
+            if node is self.root:
+                continue
+            if node.tier != "cpu":
+                continue
+            if not self._is_evictable(node):
+                continue
+            heapq.heappush(heap, (node.last_access, next(self._heap_seq), node))
+
+        freed = 0
+        while heap and freed < n_slots_needed:
+            _, _, node = heapq.heappop(heap)
+            if not self._is_evictable(node) or node.tier != "cpu":
+                continue
+            if not node.pages:
+                continue
+
+            count = len(node.pages)
+            self.cpu_pool.free(node.pages)
+            freed += count
+            self.metrics.total_cpu_evicted_pages += count
+            parent = node.parent
+            if parent is not None:
+                parent.children.pop(tuple(node.key[: self.page_size]), None)
+                # Parent may now be a CPU-tier leaf — push it back.
+                if (
+                    parent is not self.root
+                    and self._is_evictable(parent)
+                    and parent.tier == "cpu"
+                ):
                     heapq.heappush(
                         heap, (parent.last_access, next(self._heap_seq), parent)
                     )
-
         return freed
+
+    def _promote_node(self, node: "RadixNode") -> None:
+        """Lift one CPU-tier node back to GPU.
+
+        Allocates GPU pages (which may itself trigger demotion of *other*
+        cold nodes — that's fine; the path being promoted is locked by the
+        caller). Copies CPU→GPU and repoints the node. Caller is
+        responsible for locking the path before calling this.
+        """
+        assert self.cpu_pool is not None
+        assert node.tier == "cpu"
+
+        need = len(node.pages)
+        gpu_pages = self.pool.allocate(need)   # may evict-and-demote others
+
+        t0 = time.monotonic()
+        gpu_kv = self.pool.kv_caches
+        cpu_slots = node.pages
+        cpu_k = self.cpu_pool.k_buffers
+        cpu_v = self.cpu_pool.v_buffers
+        for layer, (k_gpu, v_gpu) in enumerate(gpu_kv):
+            k_gpu[gpu_pages] = cpu_k[layer][cpu_slots].to(k_gpu.device)
+            v_gpu[gpu_pages] = cpu_v[layer][cpu_slots].to(v_gpu.device)
+        self.metrics.total_promote_time_ms += (time.monotonic() - t0) * 1000.0
+
+        self.cpu_pool.free(cpu_slots)
+        node.pages = gpu_pages
+        node.tier = "gpu"
+        self.metrics.total_promoted_pages += need
+        # Promoted pages are now GPU-resident; restore the cached-pages
+        # accounting that demote subtracted.
+        self._num_cached_pages += need
+
+    def promote_match(self, match: MatchResult) -> None:
+        """Ensure every page in ``match.matched_pages`` is GPU-resident.
+
+        Walks the matched path root→leaf, promotes any CPU-tier nodes back
+        to GPU, and rewrites ``match.matched_pages`` with the refreshed GPU
+        page indices. A no-op when HiCache is disabled or when the matched
+        path is already all-GPU — that keeps the cold path on m3 exactly
+        identical to milestone 3.
+
+        Concurrency: the matched leaf is temp-locked during promotion so
+        the allocator (which may run :meth:`evict` mid-promotion) cannot
+        demote any node on the path back out from under us.
+        """
+        if self.cpu_pool is None:
+            return
+        leaf = match.last_node
+        if leaf is None or leaf is self.root:
+            return
+
+        # Path from root → leaf, then filter to CPU-tier nodes.
+        path: list[RadixNode] = []
+        cur: RadixNode | None = leaf
+        while cur is not None and cur is not self.root:
+            path.append(cur)
+            cur = cur.parent
+        path.reverse()
+        cpu_nodes = [n for n in path if n.tier == "cpu"]
+        if not cpu_nodes:
+            return   # all-GPU match — fast path, no work
+
+        # How many of leaf.pages were actually used by match_prefix? Plain
+        # arithmetic on the original matched_pages: ancestors contributed
+        # all their pages; the remainder is the leaf's used prefix.
+        ancestors_pages = sum(len(n.pages) for n in path[:-1])
+        last_used = len(match.matched_pages) - ancestors_pages
+        assert 0 <= last_used <= len(leaf.pages)
+
+        # Temp-lock the leaf — pins the whole ancestor chain against GPU
+        # eviction triggered by our own allocations during promotion.
+        self.inc_lock_ref(leaf)
+        try:
+            for node in cpu_nodes:
+                self._promote_node(node)
+        finally:
+            self.dec_lock_ref(leaf)
+
+        # Refresh matched_pages with the new (now-GPU) page indices.
+        rebuilt: list[int] = []
+        for node in path[:-1]:
+            rebuilt.extend(node.pages)
+        rebuilt.extend(leaf.pages[:last_used])
+        match.matched_pages = rebuilt
 
     # ── Maintenance ────────────────────────────────────────────────────
 
     def reset(self) -> None:
-        """Drop the whole tree, return every page to the pool."""
-        all_pages: list[int] = []
+        """Drop the whole tree, return every page to its owning pool."""
+        gpu_pages: list[int] = []
+        cpu_slots: list[int] = []
         for node in self._walk():
             if node is self.root:
                 continue
-            all_pages.extend(node.pages)
-        if all_pages:
-            self.pool.free(all_pages)
+            if node.tier == "cpu":
+                cpu_slots.extend(node.pages)
+            else:
+                gpu_pages.extend(node.pages)
+        if gpu_pages:
+            self.pool.free(gpu_pages)
+        if cpu_slots and self.cpu_pool is not None:
+            self.cpu_pool.free(cpu_slots)
         self.root.children.clear()
         self._num_cached_pages = 0
         self.metrics = CacheMetrics()

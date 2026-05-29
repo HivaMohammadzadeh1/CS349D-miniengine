@@ -116,6 +116,24 @@ def parse_args() -> argparse.Namespace:
         "KV pool runs out mid-decode, the scheduler evicts a victim "
         "(youngest by arrival time) back to the waiting queue.",
     )
+    # ── Milestone 4 (HiCache, Track 1) ───────────────────────────────────
+    p.add_argument(
+        "--cpu-cache-size-gb",
+        type=float,
+        default=0.0,
+        help="Size of the CPU KV tier in GiB (HiCache, milestone 4). 0 "
+        "disables HiCache and the radix cache stays GPU-only (byte-"
+        "identical to milestone 3). Requires --mode paged and the radix "
+        "cache enabled.",
+    )
+    p.add_argument(
+        "--hicache-overlap",
+        action="store_true",
+        help="Use a dedicated CUDA stream + pinned host memory for async "
+        "D2H/H2D demote/promote. Only meaningful when "
+        "--cpu-cache-size-gb > 0. Default off — implement first as a "
+        "blocking copy, flip this on for the perf-bonus runs.",
+    )
     return p.parse_args()
 
 
@@ -162,6 +180,22 @@ def main() -> None:
             logger.warning(
                 "--enable-retraction only applies to --mode paged; ignoring."
             )
+        if args.cpu_cache_size_gb > 0:
+            raise SystemExit(
+                "--cpu-cache-size-gb (HiCache) requires --mode paged."
+            )
+
+    # HiCache fail-fast: overlap is meaningless without a CPU pool, and the
+    # CPU pool needs the radix cache to attach to.
+    if args.hicache_overlap and args.cpu_cache_size_gb <= 0:
+        raise SystemExit(
+            "--hicache-overlap requires --cpu-cache-size-gb > 0."
+        )
+    if args.cpu_cache_size_gb > 0 and args.disable_radix_cache:
+        raise SystemExit(
+            "--cpu-cache-size-gb requires the radix cache; remove "
+            "--disable-radix-cache."
+        )
 
     engine = Engine(
         model_path=args.model,
@@ -175,6 +209,8 @@ def main() -> None:
         cuda_graph_batch_sizes=cuda_graph_batch_sizes,
         cuda_graph_max_blocks=args.cuda_graph_max_blocks,
         disable_radix_cache=args.disable_radix_cache,
+        cpu_cache_size_gb=args.cpu_cache_size_gb if args.mode == "paged" else 0.0,
+        hicache_overlap=args.hicache_overlap and args.mode == "paged",
     )
     sched = Scheduler(
         engine=engine,

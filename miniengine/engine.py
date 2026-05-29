@@ -27,6 +27,7 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer
 
 from miniengine.core import Request
+from miniengine.cpu_kv_pool import CpuKvPool
 from miniengine.cuda_graph_runner import CudaGraphRunner
 from miniengine.kv_memory_pool import KVMemoryPool, KVOutOfMemory
 from miniengine.model import CausalLM, ModelConfig, load_weights
@@ -53,6 +54,8 @@ class Engine:
         cuda_graph_batch_sizes: list[int] | None = None,
         cuda_graph_max_blocks: int = 256,
         disable_radix_cache: bool = False,
+        cpu_cache_size_gb: float = 0.0,
+        hicache_overlap: bool = False,
     ):
         self.device = device
         self.dtype = dtype
@@ -64,7 +67,14 @@ class Engine:
         self.cuda_graph_batch_sizes = cuda_graph_batch_sizes or [1, 2, 4, 8, 16, 32]
         self.cuda_graph_max_blocks = cuda_graph_max_blocks
         self.disable_radix_cache = disable_radix_cache
+        # ── Milestone 4 (HiCache) ──────────────────────────────────────────
+        # 0.0 disables HiCache entirely; the cache stays GPU-only and behavior
+        # is byte-identical to milestone 3. Overlap flag is plumbed through but
+        # the async copy stream is wired up in cpu_kv_pool/radix_cache task #11.
+        self.cpu_cache_size_gb = cpu_cache_size_gb
+        self.hicache_overlap = hicache_overlap
         self.kv_pool: KVMemoryPool | None = None
+        self.cpu_kv_pool: CpuKvPool | None = None
         self.radix_cache: RadixCache | None = None
         self.cuda_graph_runner: CudaGraphRunner | None = None
         self.scratch_page_idx: int | None = None
@@ -136,11 +146,40 @@ class Engine:
             )
 
             # Milestone 3: attach radix cache (unless explicitly disabled).
+            # Milestone 4: optionally build a CPU-tier pool (HiCache).
             if not self.disable_radix_cache:
-                self.radix_cache = RadixCache(self.kv_pool)
+                if self.cpu_cache_size_gb > 0:
+                    cpu_bytes = int(self.cpu_cache_size_gb * 1e9)
+                    self.cpu_kv_pool = CpuKvPool.from_budget(
+                        num_layers=config.num_hidden_layers,
+                        num_kv_heads=config.num_key_value_heads,
+                        head_dim=config.head_dim,
+                        page_size=page_size,
+                        dtype=dtype,
+                        bytes_budget=cpu_bytes,
+                    )
+                    logger.info(
+                        "HiCache: CPU KV tier %d slots × %d tokens (%.2f GB)  "
+                        "ratio cpu/gpu=%.1fx  pinned=%s  overlap=%s",
+                        self.cpu_kv_pool.num_pages,
+                        page_size,
+                        cpu_bytes / 1e9,
+                        self.cpu_kv_pool.num_pages / max(1, self.kv_pool.num_pages),
+                        self.cpu_kv_pool.is_pinned,
+                        self.hicache_overlap,
+                    )
+                self.radix_cache = RadixCache(self.kv_pool, cpu_pool=self.cpu_kv_pool)
                 self.kv_pool.attach_cache(self.radix_cache)
-                logger.info("Radix prefix cache enabled.")
+                logger.info(
+                    "Radix prefix cache enabled%s.",
+                    " (HiCache GPU+CPU)" if self.cpu_kv_pool is not None else "",
+                )
             else:
+                if self.cpu_cache_size_gb > 0:
+                    raise RuntimeError(
+                        "--cpu-cache-size-gb requires the radix cache; "
+                        "remove --disable-radix-cache."
+                    )
                 logger.info("Radix prefix cache DISABLED (--disable-radix-cache).")
 
             if self.torch_compile_enabled:
@@ -427,6 +466,14 @@ class Engine:
         matched_tokens = 0
         if self.radix_cache is not None:
             match = self.radix_cache.match_prefix(req.input_ids)
+            # HiCache: lift any CPU-tier nodes on the matched path back to
+            # GPU. No-op when cpu_pool is None or every matched node is
+            # already GPU-tier (so the m3 cold path is unchanged). May
+            # raise KVOutOfMemory if even after demoting other cold nodes
+            # we can't find GPU pages for the promotion — the existing
+            # outer try/except handles unwind safely (matched_node not yet
+            # set at this point, so no lock leaks).
+            self.radix_cache.promote_match(match)
             matched_pages = list(match.matched_pages)
             matched_tokens = match.matched_tokens
             self.radix_cache.inc_lock_ref(match.last_node)
