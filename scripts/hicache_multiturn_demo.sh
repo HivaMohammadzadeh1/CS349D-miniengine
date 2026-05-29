@@ -20,14 +20,19 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 MODEL=${MODEL:-Qwen/Qwen3-8B}
-CPU_GB=${CPU_GB:-40}
+CPU_GB=${CPU_GB:-24}
 NUM_SESSIONS=${NUM_SESSIONS:-32}
 TURNS=${TURNS:-5}
 MAX_TOKENS=${MAX_TOKENS:-256}
-CONCURRENCY=${CONCURRENCY:-1}
+CONCURRENCY=${CONCURRENCY:-4}
 PORT=${PORT:-8000}
 MEM_FRAC=${MEM_FRAC:-0.85}
 CHUNK=${CHUNK:-512}
+# flash-attn 2.x on Ada/Ampere (L4) requires page_size divisible by 256.
+# The milestone spec's example uses --page-size 32, but that raises
+# "Paged KV cache block size must be divisible by 256" at first prefill.
+# 256 is the smallest valid page size on this hardware.
+PAGE_SIZE=${PAGE_SIZE:-256}
 OUTDIR=${OUTDIR:-bench-out}
 PY=${PY:-.venv/bin/python}
 
@@ -48,7 +53,7 @@ run_pass () {
 
     $PY -m miniengine \
         --model "$MODEL" --mode paged \
-        --mem-fraction-static "$MEM_FRAC" --page-size 32 \
+        --mem-fraction-static "$MEM_FRAC" --page-size "$PAGE_SIZE" \
         --prefill-chunk-size "$CHUNK" \
         --cpu-cache-size-gb "$cpu_gb_arg" \
         --port "$PORT" \
