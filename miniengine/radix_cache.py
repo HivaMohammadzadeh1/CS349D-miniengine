@@ -130,6 +130,8 @@ class RadixCache:
         self,
         pool: "KVMemoryPool",
         cpu_pool: "CpuKvPool | None" = None,
+        copy_stream=None,
+        overlap: bool = False,
     ) -> None:
         self.pool = pool
         self.page_size = pool.page_size
@@ -144,6 +146,14 @@ class RadixCache:
         # :meth:`promote_match` to lift CPU-resident nodes back to GPU.
         # ``cpu_pool is None`` keeps every code path byte-identical to m3.
         self.cpu_pool: "CpuKvPool | None" = cpu_pool
+        # --hicache-overlap (bonus): when ``overlap`` and a CUDA stream are
+        # provided, demote/promote copies run on ``copy_stream`` and the
+        # source/destination pages stay reserved (pool ``deferred_free``)
+        # until the recording event fires. ``overlap=False`` is the
+        # blocking path that lands first.
+        self.copy_stream = copy_stream
+        self.overlap: bool = bool(overlap and copy_stream is not None
+                                  and cpu_pool is not None)
 
     # ── Introspection ──────────────────────────────────────────────────
 
@@ -486,20 +496,41 @@ class RadixCache:
         except CpuKvOutOfMemory:
             return False
 
-        # D2H copy of K and V for every layer. Blocking mode — overlap
-        # mode swaps this for an async copy on a dedicated stream (task #11).
+        # D2H copy of K and V for every layer.
         gpu_pages = node.pages
         t0 = time.monotonic()
         gpu_kv = self.pool.kv_caches  # list[(K, V)] per layer
         cpu_k = self.cpu_pool.k_buffers
         cpu_v = self.cpu_pool.v_buffers
-        for layer, (k_gpu, v_gpu) in enumerate(gpu_kv):
-            cpu_k[layer][cpu_slots] = k_gpu[gpu_pages].to(cpu_k[layer].device)
-            cpu_v[layer][cpu_slots] = v_gpu[gpu_pages].to(cpu_v[layer].device)
+        if self.overlap:
+            # Async on the dedicated copy stream. The PyTorch indexed-copy
+            # of a CUDA tensor into a pinned CPU tensor IS a non-blocking
+            # DMA when the source is on CUDA and the destination is pinned.
+            # Issuing under stream context routes the DMA to copy_stream.
+            import torch  # local import keeps the blocking path import-free
+            with torch.cuda.stream(self.copy_stream):
+                for layer, (k_gpu, v_gpu) in enumerate(gpu_kv):
+                    cpu_k[layer][cpu_slots] = k_gpu[gpu_pages].to(
+                        cpu_k[layer].device, non_blocking=True
+                    )
+                    cpu_v[layer][cpu_slots] = v_gpu[gpu_pages].to(
+                        cpu_v[layer].device, non_blocking=True
+                    )
+                event = torch.cuda.Event()
+                event.record(self.copy_stream)
+            # Defer freeing GPU pages until the D2H event fires; otherwise
+            # a fresh allocate could hand out a page that the copy stream
+            # is still reading.
+            self.pool.deferred_free(gpu_pages, event)
+        else:
+            # Blocking: synchronous indexed copy on the default stream.
+            for layer, (k_gpu, v_gpu) in enumerate(gpu_kv):
+                cpu_k[layer][cpu_slots] = k_gpu[gpu_pages].to(cpu_k[layer].device)
+                cpu_v[layer][cpu_slots] = v_gpu[gpu_pages].to(cpu_v[layer].device)
+            self.pool.free(gpu_pages)
         self.metrics.total_demote_time_ms += (time.monotonic() - t0) * 1000.0
 
-        # Return GPU pages to the pool and repoint the node.
-        self.pool.free(gpu_pages)
+        # Repoint the node — GPU pages have been (or will be) returned.
         node.pages = cpu_slots
         node.tier = "cpu"
         self.metrics.total_demoted_pages += need
@@ -574,12 +605,33 @@ class RadixCache:
         cpu_slots = node.pages
         cpu_k = self.cpu_pool.k_buffers
         cpu_v = self.cpu_pool.v_buffers
-        for layer, (k_gpu, v_gpu) in enumerate(gpu_kv):
-            k_gpu[gpu_pages] = cpu_k[layer][cpu_slots].to(k_gpu.device)
-            v_gpu[gpu_pages] = cpu_v[layer][cpu_slots].to(v_gpu.device)
+        if self.overlap:
+            import torch
+            with torch.cuda.stream(self.copy_stream):
+                for layer, (k_gpu, v_gpu) in enumerate(gpu_kv):
+                    k_gpu[gpu_pages] = cpu_k[layer][cpu_slots].to(
+                        k_gpu.device, non_blocking=True
+                    )
+                    v_gpu[gpu_pages] = cpu_v[layer][cpu_slots].to(
+                        v_gpu.device, non_blocking=True
+                    )
+                event = torch.cuda.Event()
+                event.record(self.copy_stream)
+            # The compute stream that runs the request's next forward must
+            # wait on the H2D event — flash-attn cannot read half-copied KV.
+            # wait_event is non-blocking on the CPU; only the GPU stream
+            # serializes.
+            torch.cuda.current_stream().wait_event(event)
+            # The H2D source (cpu_slots) is still being read by the copy
+            # stream — defer-free so a fresh allocate doesn't overwrite it.
+            self.cpu_pool.deferred_free(cpu_slots, event)
+        else:
+            for layer, (k_gpu, v_gpu) in enumerate(gpu_kv):
+                k_gpu[gpu_pages] = cpu_k[layer][cpu_slots].to(k_gpu.device)
+                v_gpu[gpu_pages] = cpu_v[layer][cpu_slots].to(v_gpu.device)
+            self.cpu_pool.free(cpu_slots)
         self.metrics.total_promote_time_ms += (time.monotonic() - t0) * 1000.0
 
-        self.cpu_pool.free(cpu_slots)
         node.pages = gpu_pages
         node.tier = "gpu"
         self.metrics.total_promoted_pages += need

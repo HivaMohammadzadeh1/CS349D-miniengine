@@ -92,17 +92,37 @@ class CpuKvPool:
         ]
         self._free: deque[int] = deque(range(num_pages))
         self._pinned = use_pin
+        # ── --hicache-overlap pending-free queue ───────────────────────────
+        # Symmetric to KVMemoryPool. While an async H2D promote is reading
+        # FROM a CPU slot, that slot stays reserved until the copy event
+        # fires; otherwise a fresh allocate could overwrite the source
+        # buffer mid-DMA. The cache calls :meth:`deferred_free` with the
+        # recording event; ``allocate`` drains the queue first.
+        self._pending_free: list[tuple[list[int], object]] = []
 
     # ── Allocator API (mirrors KVMemoryPool's surface) ─────────────────────
 
     def allocate(self, num_pages: int) -> list[int]:
         """Reserve ``num_pages`` slots and return their indices.
 
-        Raises :class:`CpuKvOutOfMemory` on shortage. The cache catches this,
-        runs CPU-tier LRU eviction, and retries (or falls back).
+        Drains the async-promote pending-free queue first (slots whose H2D
+        events have fired are released back). Raises
+        :class:`CpuKvOutOfMemory` on shortage; the cache catches it and
+        runs CPU-tier LRU eviction or falls back as appropriate.
         """
         if num_pages <= 0:
             return []
+        if self._pending_free:
+            self._drain_pending_free()
+        # Last-resort: block on the oldest pending event if we still can't
+        # meet the request. Avoids a spurious shortage when capacity is
+        # genuinely available, just not yet released.
+        while len(self._free) < num_pages and self._pending_free:
+            pages, event = self._pending_free.pop(0)
+            if hasattr(event, "synchronize"):
+                event.synchronize()
+            for p in pages:
+                self._free.append(p)
         if len(self._free) < num_pages:
             raise CpuKvOutOfMemory(
                 f"CPU KV pool out of slots: requested {num_pages}, "
@@ -114,6 +134,37 @@ class CpuKvPool:
         """Return the listed CPU slots to the free pool."""
         for idx in slot_indices:
             self._free.append(idx)
+
+    def deferred_free(self, slot_indices: list[int], event: object) -> None:
+        """Return slots once ``event.query()`` fires (async H2D promote).
+
+        See :meth:`KVMemoryPool.deferred_free` for the contract.
+        """
+        if not slot_indices:
+            return
+        self._pending_free.append((list(slot_indices), event))
+
+    def _drain_pending_free(self) -> int:
+        """Release slots whose async-copy events have fired."""
+        if not self._pending_free:
+            return 0
+        still_pending: list[tuple[list[int], object]] = []
+        released = 0
+        for slots, event in self._pending_free:
+            ready = True
+            if hasattr(event, "query"):
+                try:
+                    ready = bool(event.query())
+                except Exception:
+                    ready = True
+            if ready:
+                for s in slots:
+                    self._free.append(s)
+                released += len(slots)
+            else:
+                still_pending.append((slots, event))
+        self._pending_free = still_pending
+        return released
 
     # ── Introspection ──────────────────────────────────────────────────────
 

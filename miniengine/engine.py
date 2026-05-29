@@ -168,7 +168,21 @@ class Engine:
                         self.cpu_kv_pool.is_pinned,
                         self.hicache_overlap,
                     )
-                self.radix_cache = RadixCache(self.kv_pool, cpu_pool=self.cpu_kv_pool)
+                # --hicache-overlap: dedicate a CUDA stream for D2H/H2D so
+                # those copies don't serialize with the compute stream.
+                copy_stream = None
+                if self.cpu_kv_pool is not None and self.hicache_overlap:
+                    copy_stream = torch.cuda.Stream(device=self.device)
+                    logger.info(
+                        "HiCache overlap stream: %s",
+                        copy_stream,
+                    )
+                self.radix_cache = RadixCache(
+                    self.kv_pool,
+                    cpu_pool=self.cpu_kv_pool,
+                    copy_stream=copy_stream,
+                    overlap=self.hicache_overlap and self.cpu_kv_pool is not None,
+                )
                 self.kv_pool.attach_cache(self.radix_cache)
                 logger.info(
                     "Radix prefix cache enabled%s.",

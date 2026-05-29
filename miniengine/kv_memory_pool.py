@@ -90,6 +90,16 @@ class KVMemoryPool:
         # its tree (they are NOT in self._free).
         self.cache: "RadixCache | None" = None
 
+        # ── Milestone 4 (HiCache --hicache-overlap): pending-free queue ──
+        # When an async D2H demote is in flight on a dedicated CUDA stream,
+        # the GPU pages it reads from CANNOT be returned to the free list
+        # immediately — a fresh ``allocate`` could hand them out and
+        # overwrite the source mid-copy. Instead, the cache calls
+        # :meth:`deferred_free` with a recording event; ``allocate``
+        # drains the queue first, returning only pages whose event has
+        # fired. In the blocking path this queue stays empty.
+        self._pending_free: list[tuple[list[int], object]] = []
+
     # ── Allocation API ──────────────────────────────────────────────────
 
     def attach_cache(self, cache: "RadixCache") -> None:
@@ -100,13 +110,31 @@ class KVMemoryPool:
         """Reserve `num_pages` pages and return their indices.
 
         Raises ``KVOutOfMemory`` if the request cannot be satisfied even
-        after evicting LRU pages from the radix cache (when attached).
+        after evicting LRU pages from the radix cache (when attached) and
+        draining any pending async demotes whose copy events have fired.
         """
         if num_pages <= 0:
             return []
+        # Drain async demotes first — copies whose events have completed
+        # can release their source GPU pages back to the free list now.
+        if self._pending_free:
+            self._drain_pending_free()
         if len(self._free) < num_pages and self.cache is not None:
             need = num_pages - len(self._free)
             self.cache.evict(need)
+            # Eviction may have enqueued new async demotes; drain again.
+            if self._pending_free:
+                self._drain_pending_free()
+        # As a last resort, block on the oldest pending event so the caller
+        # doesn't hit a spurious OOM when capacity is genuinely available —
+        # just not yet released by the copy stream. Runs regardless of
+        # whether a cache is attached so the pool stays self-consistent.
+        while len(self._free) < num_pages and self._pending_free:
+            pages, event = self._pending_free.pop(0)
+            if hasattr(event, "synchronize"):
+                event.synchronize()
+            for p in pages:
+                self._free.append(p)
         if len(self._free) < num_pages:
             evictable = self.cache.num_evictable_pages() if self.cache else 0
             raise KVOutOfMemory(
@@ -119,6 +147,40 @@ class KVMemoryPool:
         """Return the listed pages to the free pool."""
         for idx in page_indices:
             self._free.append(idx)
+
+    def deferred_free(self, page_indices: list[int], event: object) -> None:
+        """Return pages once ``event.query()`` fires (HiCache async demote).
+
+        ``event`` is duck-typed: anything with ``query() -> bool`` (and
+        optionally ``synchronize()``). Pages stay reserved — neither in
+        the free list nor in any tree node — until the next
+        :meth:`allocate` drains the queue and finds the event has fired.
+        """
+        if not page_indices:
+            return
+        self._pending_free.append((list(page_indices), event))
+
+    def _drain_pending_free(self) -> int:
+        """Release pages whose async-copy events have fired. Returns count."""
+        if not self._pending_free:
+            return 0
+        still_pending: list[tuple[list[int], object]] = []
+        released = 0
+        for pages, event in self._pending_free:
+            ready = True
+            if hasattr(event, "query"):
+                try:
+                    ready = bool(event.query())
+                except Exception:
+                    ready = True   # treat broken events as best-effort done
+            if ready:
+                for p in pages:
+                    self._free.append(p)
+                released += len(pages)
+            else:
+                still_pending.append((pages, event))
+        self._pending_free = still_pending
+        return released
 
     def pages_needed(self, seq_len: int) -> int:
         """How many pages are required to store `seq_len` tokens."""
