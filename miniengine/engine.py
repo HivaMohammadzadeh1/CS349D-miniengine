@@ -896,10 +896,17 @@ class Engine:
             self.radix_cache.dec_lock_ref(req.matched_node)
             req.matched_node = None
         if self.kv_pool is not None and req.page_table is not None:
-            # Note: we do not insert anything into the cache — the request
-            # didn't finish, so its output isn't authoritative. Pages just
-            # return to the pool.
-            self.kv_pool.free(req.page_table)
+            # Same invariant as free_paged_request /
+            # _insert_prompt_into_cache: req.page_table[:n_matched_pages]
+            # are physically the same indices the tree's matched ancestor
+            # still owns (start_paged_prefill set page_table = matched_pages
+            # + new_pages). Freeing those here is a double-free; the tree
+            # retains them, and they'll be returned exactly once when the
+            # tree later evicts that subtree.
+            n_matched = req.cache_hit_tokens // self.page_size
+            new_pages = req.page_table[n_matched:]
+            if new_pages:
+                self.kv_pool.free(new_pages)
         req.page_table = None
         req.cache_len = 0
         req.prefill_offset = 0
