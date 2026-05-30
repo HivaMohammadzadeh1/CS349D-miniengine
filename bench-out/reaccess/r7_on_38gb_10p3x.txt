@@ -1,0 +1,28 @@
+Schedule: 576 requests
+  Sessions    : 96
+  Turns       : 6
+  Max tokens  : 192
+  Concurrency : 16
+  Order       : round-robin (all turn k before any turn k+1)
+
+  turn 0 done in 62.6s -- hit_rate=0.0%
+  turn 1 done in 48.6s -- hit_rate=78.8%
+  turn 2 done in 58.1s -- hit_rate=74.6%
+  turn 3 done in 67.1s -- hit_rate=80.4%
+  turn 4 done in 68.1s -- hit_rate=83.0%
+  turn 5 done in 80.6s -- hit_rate=82.9%
+
+================================================================
+  Round-robin multi-turn re-access bench
+================================================================
+turn     N  prompt_tok    hit_tok  hit_rate   TTFT_p50   TTFT_p99    lat_p50
+   0    96       88054          0      0.0%     1008ms     8082ms     9663ms
+   1    96       93518      73728     78.8%      254ms     3182ms     5878ms
+   2    96      100895      75264     74.6%      293ms     3753ms     6742ms
+   3    96      109218      87808     80.4%      293ms     3545ms     7394ms
+   4    96      119021      98816     83.0%      320ms     3905ms     8142ms
+   5    96      128524     106496     82.9%      310ms     4126ms     8614ms
+
+  Overall hit rate    : 69.2%
+  Overall TTFT p50/p99: 335 / 5510 ms
+  Overall latency p50 : 7476 ms
