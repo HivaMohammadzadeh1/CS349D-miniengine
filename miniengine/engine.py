@@ -754,13 +754,13 @@ class Engine:
             _leaf, redundant = self.radix_cache.insert_and_return(
                 prefix_tokens, prefix_pages
             )
-            if redundant:
-                # Another concurrent request beat us to caching this prefix.
-                # The cache's pages win; ours go back to the pool. We do NOT
-                # rewrite req.page_table — both copies contain the same K/V
-                # (deterministic forward), so the request can keep decoding
-                # against its own pages until it finishes.
-                self.kv_pool.free(redundant)
+            # Same invariant as free_paged_request: ``redundant`` indices ==
+            # the matched_node's pages this request is already borrowing
+            # (req.page_table[:n_matched] == matched_node.pages). Don't free
+            # — the tree owns them; eviction will return them once. Freeing
+            # here causes pool_num_free to drift above num_pages and
+            # ultimately wedges the scheduler under multi-turn load.
+            del redundant
 
     @torch.inference_mode()
     def paged_decode_step(self, requests: list[Request]) -> list[int]:
