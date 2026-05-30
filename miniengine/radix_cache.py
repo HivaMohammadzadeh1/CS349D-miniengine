@@ -416,27 +416,42 @@ class RadixCache:
 
         hicache = self.cpu_pool is not None
 
-        # Min-heap of (last_access, seq, node) over current GPU-evictable
-        # leaves. With HiCache on, CPU-tier nodes hold no GPU pages so
-        # they're skipped here (the CPU tier has its own LRU in _cpu_evict).
+        # Min-heap of (last_access, seq, node) over GPU eviction candidates.
+        # m3 mode (cpu_pool=None): leaves only (no-children) -- dropping a
+        # non-leaf would orphan its descendants.
+        # HiCache mode: ANY GPU-tier node that isn't locked. Demoting a
+        # non-leaf is safe because the node stays in the tree (tier=cpu),
+        # children remain reachable, and the tree structure is preserved.
+        # Without this, once we've demoted every GPU-tier leaf we run out
+        # of GPU eviction candidates -- the leaf constraint blocked progress
+        # in a way m3's drop semantics (which chained upward, since drop
+        # removed nodes) didn't.
         heap: list[tuple[float, int, RadixNode]] = []
         for node in self._walk():
             if node is self.root:
                 continue
-            if not self._is_evictable(node):
+            if node.ref_count != 0:
                 continue
-            if hicache and node.tier != "gpu":
+            if hicache:
+                if node.tier != "gpu":
+                    continue
+                if not node.pages:
+                    continue
+            elif not self._is_evictable(node):
                 continue
             heapq.heappush(heap, (node.last_access, next(self._heap_seq), node))
 
         freed = 0
         while heap and freed < n_pages_needed:
             _, _, node = heapq.heappop(heap)
-            # Re-validate: a re-pushed parent may have re-acquired
-            # children/locks; a node may have been demoted between pushes.
-            if not self._is_evictable(node):
+            # Re-validate: a re-pushed parent may have re-acquired locks;
+            # a node may have been demoted between pushes.
+            if node.ref_count != 0:
                 continue
             if hicache and node.tier != "gpu":
+                continue
+            if not hicache and not self._is_evictable(node):
+                # m3 path still requires the leaf invariant for drop.
                 continue
             if not node.pages:
                 continue
@@ -444,25 +459,34 @@ class RadixCache:
             page_count = len(node.pages)
 
             if hicache and self._try_demote(node):
-                # Demoted in place: node stays in the tree as CPU-tier,
-                # its GPU pages were returned to the pool. Parent does NOT
-                # become a leaf (this node is still its child).
+                # Demoted in place. The node stays in the tree as CPU-tier;
+                # children (if any) remain reachable. Parent does NOT become
+                # a leaf -- this node is still its child.
                 freed += page_count
                 continue
 
-            # Fall-back / m3 path: drop the node entirely.
+            # Fall-back drop. Only safe when the node is a leaf (no
+            # children to orphan); HiCache _try_demote may have failed
+            # because the CPU pool can't accept and CPU LRU couldn't free
+            # enough. For non-leaf GPU nodes we just skip and let
+            # _try_demote pick a different candidate next time.
+            if node.children:
+                continue
             self.pool.free(node.pages)
             freed += page_count
             self._num_cached_pages -= page_count
             self.metrics.total_evicted_pages += page_count
             parent = node.parent
             if parent is not None:
-                # Detach from parent's children dict (keyed by first page).
                 parent.children.pop(tuple(node.key[: self.page_size]), None)
-                if self._is_evictable(parent) and parent is not self.root:
-                    # Only re-push if the parent is itself a GPU eviction
-                    # candidate (m3: always; HiCache: must be GPU-tier).
-                    if not hicache or parent.tier == "gpu":
+                if (
+                    parent is not self.root
+                    and parent.ref_count == 0
+                    and (not hicache or parent.tier == "gpu")
+                ):
+                    # m3: parent must be a leaf to be evictable; HiCache:
+                    # demotion handles non-leaves so push regardless.
+                    if hicache or not parent.children:
                         heapq.heappush(
                             heap, (parent.last_access, next(self._heap_seq), parent)
                         )
