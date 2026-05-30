@@ -36,7 +36,10 @@ import aiohttp
 SYSTEM_TEMPLATE = (
     "You are a helpful encyclopedic assistant. Session {sid}. Be concise. "
     "Answer the user's question directly and stop. "
-) * 4   # ~80-110 Qwen3 tokens
+) * 32   # ~700-900 Qwen3 tokens => each session gets ~3 pages of cached
+         # prefix from turn 0 onward, so cache pressure scales linearly
+         # with session count and HiCache's avoided-re-prefill saving is
+         # large per hit.
 
 
 USER_TURNS = [
@@ -143,7 +146,13 @@ async def run(args):
                     one_request(session, args, turn, sid, histories,
                                 per_turn, sem, rng)
                 ))
-            await asyncio.gather(*tasks)
+            # return_exceptions so a single transient ConnectionResetError
+            # doesn't kill the whole barrier -- log it, drop the sample.
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            failures = [r for r in results if isinstance(r, Exception)]
+            if failures:
+                print(f"    [warn] {len(failures)} request(s) failed: "
+                      f"{type(failures[0]).__name__}: {failures[0]}")
             print(
                 f"  turn {turn} done in {time.perf_counter() - turn_t0:.1f}s "
                 f"-- hit_rate={100 * per_turn[turn]['hit_tok'] / max(1, per_turn[turn]['prompt_tok']):.1f}%"
