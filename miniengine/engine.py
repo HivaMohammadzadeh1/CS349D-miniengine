@@ -857,8 +857,18 @@ class Engine:
                 _leaf, redundant = self.radix_cache.insert_and_return(
                     full_tokens[:aligned], full_pages
                 )
-                if redundant:
-                    self.kv_pool.free(redundant)
+                # ``redundant`` are the input page indices that overlapped an
+                # existing tree edge — by construction they are the SAME
+                # physical pages the matched ancestor node already owns
+                # (req.page_table[:n_matched] = matched_node.pages). Freeing
+                # them here would be a double-free: when the tree later
+                # evicts those nodes it will free the same indices again,
+                # leaving phantom entries in the pool's free list and
+                # ultimately corrupting allocation. Just leave them owned by
+                # the tree. (Pre-existing m3 baseline bug; surfaces as
+                # pool_num_free > num_pages and a wedged scheduler under
+                # sustained multi-turn load.)
+                del redundant   # silence pyflakes; semantics intentional
                 # Unaligned tail (partial last page) can't be cached.
                 tail_pages = req.page_table[aligned // ps :]
                 if tail_pages:
