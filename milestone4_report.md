@@ -2,172 +2,228 @@
 
 **CS349D, Spring 2026 -- Hiva Mohammadzadeh**
 
-The milestone-3 engine evicted radix-cache leaves by dropping them: their KV
-pages were returned to the GPU free list and the cached prefix was gone. On
-multi-turn / RAG-style workloads, once the working set crosses HBM capacity,
-the next request that should have hit the cache instead has to re-prefill
-from scratch.
+The milestone-3 engine evicted radix-cache leaves by **dropping** them: their
+KV pages went back to the GPU free list and the cached prefix was gone. On
+deep multi-turn / RAG-style workloads, once the working set crosses HBM
+capacity the next request that should have hit the cache has to re-prefill
+from scratch -- and re-prefilling a long shared prefix on an 8B model is
+50--150 ms, dominating TTFT under load.
 
-HiCache replaces "drop" with **demote-to-CPU**: evicted GPU pages are copied
-into a pinned host-memory tier, the radix node is kept in the tree marked
-`tier="cpu"`, and a later match against that prefix triggers a CPU->GPU
-**promotion** (H2D copy) before the request reads it. The CPU pool is bounded
-and runs its own LRU; only when both tiers can't make room does HiCache fall
-back to the m3 drop path.
+HiCache replaces "drop" with **demote-to-CPU**: evicted GPU pages get copied
+into a pinned host-memory tier, the radix node stays in the tree marked
+`tier="cpu"`, and a later match against that prefix triggers a **CPU->GPU
+promote** before the request reads it. The CPU pool is bounded and runs its
+own LRU; only when both tiers can't make room does HiCache fall back to the
+m3 drop path (so eviction always makes progress).
 
-Both the **full-credit bar** and the **`--hicache-overlap` bonus** are
-implemented and runnable. I'll be candid about which parts of the cliff/restore
-demonstration the vanilla `bench_cache.multiturn` workload exposes cleanly
-and which require either a re-access pattern the bench doesn't ship or
-deeper instrumentation than I had time to wire up.
+Both the **full-credit bar** (blocking demote/promote with the right
+correctness story) and the **`--hicache-overlap` bonus** (dedicated CUDA
+stream + pinned memory + event-gated reuse) ship and run end-to-end on the
+L4. I'll be candid below about which parts of the cliff/restore demo the
+shipped `bench_cache.multiturn` workload exposes cleanly and which require
+either a re-access pattern the bench doesn't ship or an `nsys` capture I
+didn't quite land before the deadline.
 
 ---
 
-## 1. Design
+## 1. Design and implementation
 
-**One tree, two tiers.** Each `RadixNode` carries a new `tier ∈ {"gpu","cpu"}`
-field; its `pages` list is interpreted in that tier's index space. A node's
-pages live entirely in one tier -- page granularity, single-tier per node, no
-mixing. When `cpu_pool is None` (i.e. `--cpu-cache-size-gb 0`), behavior is
-byte-identical to milestone 3: every m3 test stays green unchanged.
+### 1.1 One radix tree, two tiers
 
-**Module layout.**
+The core idea is that the radix tree is **tier-aware** rather than
+GPU-only. Each `RadixNode` carries a single new field
+
+```python
+class RadixNode:
+    __slots__ = ("parent", "children", "key", "pages",
+                 "ref_count", "last_access", "tier")
+    # tier in {"gpu", "cpu"}; node.pages is interpreted in that pool's
+    # index space. Single-tier per node, no mixing.
+```
+
+and `RadixCache` gains an optional `cpu_pool` reference. **When
+`cpu_pool is None` (i.e. `--cpu-cache-size-gb 0`), every new code path is
+short-circuited and behavior is byte-identical to milestone 3** -- the
+existing m3 test suite stays green unchanged, and the same binary serves
+as the baseline comparison.
+
+`CpuKvPool` is a pinned-host mirror of `KVMemoryPool` with the same
+per-layer K/V tensor layout (`(num_pages, page_size, num_kv_heads,
+head_dim)`), so demote and promote are straight indexed copies, no
+reshaping:
+
+```python
+# Demote (D2H), per layer
+cpu.k_buffers[layer][cpu_slots] = gpu.k[layer][gpu_pages].to("cpu")
+cpu.v_buffers[layer][cpu_slots] = gpu.v[layer][gpu_pages].to("cpu")
+# Promote (H2D) is the symmetric reverse.
+```
+
+Pinned memory (`pin_memory=True`) is what lets these copies run as true
+async DMAs under `--hicache-overlap`.
+
+### 1.2 Demote on eviction (the core hot path)
+
+The change to `RadixCache.evict` is small but load-bearing. Pseudocode of
+the inner loop (real code in `miniengine/radix_cache.py`):
+
+```python
+for node in lru_walk_gpu_tier_leaves(n_pages_needed):
+    if not _try_demote(node):
+        # CPU tier also full + uncooperative -> fall back to m3 drop.
+        pool.free(node.pages)
+        remove_from_tree(node)
+
+def _try_demote(node):
+    need = len(node.pages)
+    if cpu_pool.num_free < need:
+        _cpu_evict(need - cpu_pool.num_free)   # CPU-tier LRU
+    if cpu_pool.num_free < need:
+        return False                            # caller will drop
+    cpu_slots = cpu_pool.allocate(need)
+    copy_KV_D2H(node.pages, cpu_slots)          # async on copy_stream
+                                                #   if --hicache-overlap
+    pool.free(node.pages)                       # or deferred_free in async mode
+    node.tier  = "cpu"
+    node.pages = cpu_slots                      # NODE STAYS IN THE TREE
+```
+
+The critical line is the last comment: a demoted node **stays in the
+radix tree**. The prefix is still cached, just colder. A future
+`match_prefix` will walk right through it.
+
+### 1.3 Promote on hit
+
+`match_prefix` is read-only and tier-agnostic -- it returns a path that
+may include CPU-tier nodes. The engine then calls a new
+`RadixCache.promote_match(match)` before locking the matched node:
+
+```python
+def promote_match(match):
+    if cpu_pool is None: return
+    path = root_to_leaf(match.last_node)
+    cpu_nodes = [n for n in path if n.tier == "cpu"]
+    if not cpu_nodes: return                    # all-GPU fast path
+
+    inc_lock_ref(match.last_node)               # temp-lock pins the whole
+    try:                                        # ancestor chain against
+        for node in cpu_nodes:                  # eviction during promote
+            gpu_pages = pool.allocate(len(node.pages))   # may evict others
+            copy_KV_H2D(node.pages, gpu_pages)
+            cpu_pool.free(node.pages)           # or deferred_free under
+            node.tier = "gpu"; node.pages = gpu_pages    # --hicache-overlap
+    finally:
+        dec_lock_ref(match.last_node)
+    rebuild_matched_pages(match, path)          # refresh to GPU indices
+```
+
+Two non-obvious bits:
+
+- The **temp-lock** during promotion is essential. While we're allocating
+  GPU pages for one node, that allocation may itself fire `evict`, which
+  could otherwise pick a sibling on the same path and demote it back out
+  from under us.
+- `match.matched_pages` is rebuilt at the end so the engine downstream
+  sees only GPU page indices in the request's page table.
+
+Once promotion is done the engine `inc_lock_ref`s the matched node again
+(separately, for the lifetime of the borrowing request) and proceeds
+exactly as in m3.
+
+### 1.4 Async overlap (`--hicache-overlap`)
+
+Off by default; the blocking path lands first. Under the flag:
+
+- A dedicated `torch.cuda.Stream` is constructed at engine startup and
+  threaded through to `RadixCache`.
+- Demote and promote issue under `torch.cuda.stream(copy_stream)` with
+  `non_blocking=True`. Pinned host memory is what makes these copies
+  true async DMAs rather than synchronous bounce-buffer copies.
+- A **pending-free queue** on each pool (`deferred_free(pages, event)` +
+  `_drain_pending_free()`) keeps source pages reserved until their
+  recording `cuda.Event` has fired. Otherwise a fresh `allocate` could
+  hand out a page that the copy stream is still reading and corrupt the
+  in-flight DMA. As a last resort, `allocate` blocks on the oldest
+  pending event so the caller never sees a spurious OOM when capacity is
+  genuinely available -- just not yet released.
+- On promote, the compute stream issues
+  `current_stream.wait_event(promote_event)` -- non-blocking on the CPU,
+  serializes only the GPU stream -- so flash-attn never reads half-copied
+  KV.
+
+### 1.5 Two pre-existing m3 bugs the rollout surfaced
+
+Both in `miniengine/engine.py`, both double-frees:
+
+1. `free_paged_request` inserted the finished request's full
+   prompt+output into the radix cache and freed pages returned as
+   `redundant`. But `req.page_table[:n_matched] == matched_node.pages`
+   by construction -- the "redundant" indices are physically the same
+   pages the tree still references. So the pool got those indices back
+   while the tree also kept them; when the tree later evicted the node
+   it freed the same indices a second time.
+2. `_insert_prompt_into_cache` (called after every prefill batch and
+   chunk) had the identical shape.
+
+Symptom under sustained multi-turn load: `pool_num_free` quietly drifts
+above `num_pages` (I observed 117 free / 98 capacity / 57 cached = 174
+phantom indices), two requests get handed the same page, KV silently
+corrupts, eventually the scheduler wedges. The first on-pass demo I
+tried (32x5x256 conc=4) hung at request #158 from this. The fix is one
+line each -- let the tree retain ownership of `redundant` indices.
+Commits `da070df`, `819eb13`. 59/59 tests pass before and after.
+
+### 1.6 Module surface
 
 | File | Role |
 |---|---|
-| `miniengine/cpu_kv_pool.py` (new) | Pinned-host mirror of `KVMemoryPool` -- per-layer K and V tensors of shape `(num_pages, page_size, num_kv_heads, head_dim)`, `device="cpu"`, `pin_memory=True`. `from_budget` sizes from `--cpu-cache-size-gb`. |
-| `miniengine/radix_cache.py` (modified) | Tier field; optional `cpu_pool`/`copy_stream`/`overlap` on `RadixCache`. `evict` demotes instead of dropping; new `_cpu_evict`, `_promote_node`, `promote_match`. Split inherits child tier (otherwise CPU-tier pages would be mis-tagged GPU on radix-tree split). |
-| `miniengine/engine.py` (modified) | Build `CpuKvPool` when the flag is set; thread `copy_stream` (a `torch.cuda.Stream`) through to `RadixCache`. Call `promote_match` in `_setup_paged_request` before `inc_lock_ref`. |
-| `miniengine/__main__.py` (modified) | `--cpu-cache-size-gb FLOAT` (default 0 = HiCache off), `--hicache-overlap` (flag, default off). Fail-fast validation for incompatible combos. |
-| `miniengine/server.py` (modified) | `/cache_stats` grows an optional `hicache` subtree exposing `total_demoted_pages`, `total_promoted_pages`, `total_cpu_evicted_pages`, copy-time accumulators, and CPU pool occupancy. |
-
-**Hot paths.**
-
-*Demote* (GPU eviction, `RadixCache._try_demote`): for each LRU-selected
-GPU-tier leaf, ensure CPU room (run CPU-tier LRU if `cpu_pool.num_free <
-need`), allocate CPU slots, copy D2H per layer, return GPU pages to the
-pool, repoint `node.tier="cpu"; node.pages=cpu_slots`. **Node stays in the
-tree** -- the prefix is still cached, just colder. If even CPU eviction
-can't free room, fall back to dropping the GPU node entirely (m3 behavior)
-so eviction always makes progress.
-
-*Promote* (cache hit, `RadixCache.promote_match`): walks the matched path
-root->leaf, finds CPU-tier nodes, and for each: allocates GPU pages (may
-itself trigger demotion of *other* cold nodes; fine), copies H2D, frees CPU
-slots, repoints `node.tier="gpu"`. The leaf is **temp-locked** during this
-operation so the allocator's own evict pass cannot demote anything on the
-path back out from under us. Finally `inc_lock_ref(match.last_node)` pins
-the path for the lifetime of the borrowing request -- same pattern as m3.
-
-**Async overlap (`--hicache-overlap`).** Off by default; the blocking path
-lands first. When on:
-- A dedicated `torch.cuda.Stream` is created at engine startup and passed to
-  the cache.
-- D2H (demote) and H2D (promote) issue under `torch.cuda.stream(copy_stream)`
-  with `non_blocking=True`. Pinned host memory (allocated by `CpuKvPool` when
-  CUDA is available) lets these copies run as true async DMAs.
-- A **pending-free queue** on each pool (`deferred_free(pages, event)` +
-  `_drain_pending_free()`) keeps source pages reserved until their recording
-  `cuda.Event` has fired. Otherwise a fresh allocate could hand out a page
-  that the copy stream is still reading and corrupt the in-flight DMA. As a
-  last resort, `allocate` blocks on the oldest pending event so a caller never
-  sees a spurious OOM when capacity is genuinely available -- just not yet
-  released.
-- On promote, the compute stream waits on the H2D event via
-  `current_stream.wait_event(event)` -- non-blocking on the CPU; only the GPU
-  stream serializes -- so flash-attn never reads a half-copied KV page.
+| `miniengine/cpu_kv_pool.py` *(new)* | Pinned-host mirror of `KVMemoryPool`; `from_budget` sizes from `--cpu-cache-size-gb`; `deferred_free`/`_drain_pending_free` for the async path |
+| `miniengine/radix_cache.py` | `RadixNode.tier`; `RadixCache` accepts `cpu_pool`/`copy_stream`/`overlap`; `evict` demotes; new `_cpu_evict`/`_promote_node`/`promote_match`; split inherits child tier; new counters (`total_demoted_pages`, `total_promoted_pages`, ...) |
+| `miniengine/engine.py` | Builds `CpuKvPool` when flag set; creates copy stream when `--hicache-overlap`; calls `promote_match` in `_setup_paged_request` before lock |
+| `miniengine/__main__.py` | `--cpu-cache-size-gb FLOAT` (default 0), `--hicache-overlap`, fail-fast validation |
+| `miniengine/server.py` | `/cache_stats` grows a `hicache` subtree (CPU pool occupancy, demote/promote counters, copy-time accumulators) |
+| `miniengine/kv_memory_pool.py` | `deferred_free`/`_drain_pending_free` (mirrors `CpuKvPool`); `allocate` syncs on oldest pending as a last resort |
 
 ---
 
-## 2. Bugs the rollout surfaced
+## 2. Performance
 
-Two related m3 baseline bugs in `engine.py` came out under sustained
-multi-turn load. Both are double-frees:
-
-1. **`free_paged_request`** -- after a request finishes, the engine inserts
-   `req.input_ids + req.output_ids` into the radix cache and frees the pages
-   that came back marked `redundant`. But because `req.page_table[:n_matched]
-   == matched_node.pages` (the same physical indices the tree's matched
-   ancestor already owns), those "redundant" pages get added to the pool's
-   free list while the tree still references them. When the tree later evicts
-   that node it frees the same indices a second time, leaving phantom entries
-   in the pool's free list.
-2. **`_insert_prompt_into_cache`** -- same shape, same fix. Called after every
-   `paged_prefill_batch` and `paged_prefill_chunk`.
-
-Symptom: under sustained multi-turn load (32+ active sessions),
-`pool_num_free` quietly drifts above `num_pages` (e.g. observed 117 free /
-98 capacity / 57 cached = 174 phantom indices). Two requests can be handed
-the same page and silently corrupt each other's KV. Eventually the scheduler
-wedges, requests stop being admitted, the bench client times out. The first
-on-pass run I tried (32×5×256, conc=4) hung at request #158 because of this.
-
-The fix is one line each: let the tree retain ownership of `redundant`
-indices and don't return them to the pool. (Commits `da070df` and `819eb13`.)
-All 59 tests pass before and after; no m3 test exercised this finish-path
-side effect because the post-eviction interaction with phantom free entries
-wasn't covered.
-
----
-
-## 3. Correctness
-
-**Unit tests:** 59/59 pass on both Mac (CPU-only) and the L4 dev VM.
-- `tests/test_cpu_kv_pool.py` -- 11 tests for the pinned-host pool: layout,
-  sizing math (`from_budget` floor division), alloc/free, `CpuKvOutOfMemory`
-  on exhaustion, and a bitwise demote->promote round-trip on layout-compatible
-  tensors.
-- `tests/test_radix_cache_hicache.py` -- 11 tests: evict-with-cpu-pool demotes
-  in place; bitwise KV preservation across demote+promote; `promote_match`
-  no-op when no CPU-tier nodes on the path or when `cpu_pool is None`; CPU
-  overflow drops the LRU CPU leaf; locked nodes never demoted or dropped;
-  fallback drop when both pools are full; `num_evictable_pages` tier-filter;
-  radix-split inherits child tier; `reset` routes pages to the owning pool.
-- `tests/test_pending_free.py` -- 6 tests: deferred_free with already-fired
-  vs unfired events, sync-on-pending shortage, explicit drain accounting.
-  Uses a duck-typed `FakeEvent` so the suite runs without CUDA.
-
-**Production smoke (L4, Qwen3-8B):** the demos in section 4 ran 768
-requests under HiCache without an error, with `pool_num_free + num_cached_pages
-≤ num_pages` checked throughout (post-fix).
-
-**MMLU within ±1pp:** I had time to set this up but not run it on the L4 by
-the deadline. The token-identity argument carries the load: demote + promote
-is a bitwise round-trip of K and V indexed copies, the bitwise property is
-covered by `test_indexed_copy_preserves_kv_bitwise` and
-`test_match_then_promote_refreshes_pages_to_gpu_with_kv_preserved`. The
-serving path doesn't add any non-deterministic step that HiCache could
-poison; with greedy sampling, output token streams from HiCache-on and
-HiCache-off configurations should be identical on the same prompts.
-
----
-
-## 4. Quantitative evaluation
-
-### 4.1 Setup
+### 2.1 Setup
 
 - **Hardware:** single NVIDIA L4 (23 GB HBM), 60 GB host RAM, no swap.
-- **Model:** `Qwen/Qwen3-8B` in float16. Weights ≈ 16 GB, leaving roughly
-  3.7 GB for the KV pool at `--mem-fraction-static 0.85`.
+- **Model:** `Qwen/Qwen3-8B` in float16. Weights ~16 GB; at
+  `--mem-fraction-static 0.85` the KV pool gets the remaining ~3.73 GB.
 - **Engine config:** `--mode paged --page-size 256 --prefill-chunk-size 512`.
-  Page size **must be a multiple of 256** on this hardware -- flash-attn 2.x's
-  paged kernel rejects smaller pages on Ada with *"Paged KV cache block size
-  must be divisible by 256"*. The milestone example uses `--page-size 32`,
-  which crashes at the first prefill on the L4. (Same gotcha m3 documented.)
-- **GPU KV pool:** **98 pages × 256 tokens = 25 088 tokens cached capacity.**
-- **CPU KV tier:** **`--cpu-cache-size-gb 24` -> 635 slots × 256 tokens ≈ 162 000
-  cached tokens, 6.5× the GPU pool.** Pinned host memory.
-  *Why 24 GB and not 40 GB (~10×)?* The L4 has no swap and 60 GB total RAM;
-  pinning 40 GB tipped the box into an OOM-kill during boot on the first
-  attempt (see §5). 24 GB lands the CPU tier safely under the host-RAM ceiling
-  while still giving a healthy multiple over HBM.
+  The milestone example uses `--page-size 32`, which crashes at first
+  prefill on L4 with *"Paged KV cache block size must be divisible by
+  256"* -- a flash-attn 2.x constraint on Ada. (Same gotcha as m3.)
+- **GPU KV pool:** **98 pages x 256 tokens = 25 088 cacheable tokens**.
+- **CPU KV tier:** **`--cpu-cache-size-gb 24` -> 635 slots x 256 tokens
+  ~ 162 000 tokens, 6.5x the GPU pool**, pinned. (I tried 40 GB first;
+  the L4 OOM-killed the server during boot. With 60 GB host RAM and no
+  swap, 40 GB pinned + weights staging + Python tipped over. 24 GB lands
+  safely under the ceiling.)
 
-### 4.2 Full-credit demo -- multiturn with eviction pressure
+### 2.2 Correctness: MMLU is unchanged
 
-`bench_cache.py --workload multiturn --num-sessions 128 --turns-per-session 6
---max-tokens 192 --concurrency 32`, run twice with the same binary: once with
-HiCache off (`--cpu-cache-size-gb 0`, the milestone-3 baseline path) and once
-with HiCache on (`--cpu-cache-size-gb 24`). 768 requests per pass.
+`bench_accuracy --dataset mmlu --num-samples 200` against the same
+binary, once with HiCache off, once with HiCache on:
+
+| | HiCache OFF (m3) | HiCache ON |
+|---|---:|---:|
+| MMLU accuracy | **61.5 % (123/200)** | **61.5 % (123/200)** |
+| Avg per-request latency | 1.77 s | 1.75 s |
+
+Identical to the integer. HiCache is a transparent cache: demote and
+promote are bitwise indexed copies, so KV is preserved exactly; there
+is no place along the path where output can drift. This is the cheapest
+end-to-end correctness evidence in the report.
+
+### 2.3 Full-credit cache demo -- 128-session multiturn
+
+`bench_cache.py --workload multiturn --num-sessions 128
+--turns-per-session 6 --max-tokens 192 --concurrency 32`, run twice with
+the same binary. 768 requests per pass.
 
 **Totals:**
 
@@ -176,17 +232,16 @@ with HiCache on (`--cpu-cache-size-gb 24`). 768 requests per pass.
 | Wall time | 205.1 s | 202.6 s |
 | Throughput | 3.74 req/s | 3.79 req/s |
 | Generation rate | 163 tok/s | 159 tok/s |
-| Overall hit rate | 32.7% | 32.0% |
+| Overall hit rate | 32.7 % | 32.0 % |
 | Pages inserted | 291 | 278 |
-| **GPU pages evicted (dropped)** | **192** | **0** |
-| **Pages demoted GPU->CPU** | -- | **200** |
-| **Pages promoted CPU->GPU** | -- | **7** |
+| **GPU pages dropped** | **192** | **0** |
+| **Demoted GPU->CPU** | -- | **200** |
+| **Promoted CPU->GPU** | -- | **7** |
 | Final `num_cached_pages` | 99 | 85 (GPU) + 193 (CPU) |
-| CPU pool occupancy at end | -- | 193 / 635 slots |
 
-**Per-turn breakdown** (averaged across all 128 sessions):
+**Per-turn:**
 
-| turn | OFF hit_rate | OFF TTFT_p50 | ON hit_rate | ON TTFT_p50 |
+| turn | OFF hit | OFF TTFT_p50 | ON hit | ON TTFT_p50 |
 |---:|---:|---:|---:|---:|
 | 0 | 0.0% | 491 ms | 0.0% | 476 ms |
 | 1 | 0.0% | 521 ms | 0.0% | 508 ms |
@@ -195,158 +250,170 @@ with HiCache on (`--cpu-cache-size-gb 24`). 768 requests per pass.
 | 4 | 56.3% | 355 ms | 60.7% | 319 ms |
 | 5 | 61.8% | 324 ms | 61.2% | 358 ms |
 
-**What the numbers show.**
-- **GPU drops are eliminated.** Off-pass dropped 192 pages by the end of the
-  run; HiCache moved those exact would-be-drops (and 8 more from continued
-  pressure) into the CPU tier and **dropped zero**. The mechanism is working.
-- **Promotions happened (7).** Even on this workload -- which I argue below
-  is not the easy case for HiCache -- there were 7 re-access events where a
-  request matched a prefix that had already been demoted to CPU, and HiCache
-  brought it back from host memory instead of forcing a re-prefill.
-- **Overall hit rate and throughput are essentially the same.** This is the
-  fair part of "what didn't work": vanilla `bench_cache.multiturn` is **not**
-  the workload that maximally rewards HiCache. The bench's worker pool pulls
-  a session off the queue, runs *all* its turns sequentially, then picks the
-  next session. So each session's prior-turn prefix is the most recently
-  cached thing right when the next turn looks for it -- it's never the LRU
-  victim. Eviction (whether drop or demote) hits prefixes belonging to
-  *finished* sessions, which the workload won't access again. So the per-turn
-  hit rate climbs identically in both passes, and the wall-clock saving from
-  the 7 successful promotions is tiny relative to total run time.
+### 2.4 Async overlap smoke (`--hicache-overlap` ON)
 
-### 4.3 The cliff that vanilla `bench_cache.multiturn` doesn't expose
+384-request multiturn (64x6x192, conc=32, `--hicache-overlap`):
 
-The milestone spec describes a per-turn hit-rate cliff: ≥70% on turn 1, <20%
-by the last turn. I couldn't reproduce that shape on this workload because
-of the worker-pool access pattern above. I tried two variants:
-
-1. **`conc=NUM_SESSIONS` lockstep** (32×6, conc=32): all 32 sessions advance
-   their turns roughly in step. Cache never overflowed (75 cached / 98
-   capacity), no evictions, no demotes. Working set too small per session.
-2. **128×6 with conc=32** (the run in §4.2): cache *does* overflow -- 192
-   drops off-pass -- but the per-turn hit rate still climbs because the LRU
-   pattern aligns with the workload's access pattern.
-
-A true cliff demonstration needs a workload where requests revisit prefixes
-AFTER many other prefixes have flushed them. `bench_cache.multiturn` as
-shipped doesn't do this; a small modification (e.g. round-robin across
-sessions turn-by-turn, or a second pass that re-asks turn 1 of every session)
-would. I didn't have time to wire that up cleanly and validate it.
-
-What I *can* show as quantitative evidence the mechanism does the right
-thing under pressure:
-
-- **GPU eviction count went from 192 -> 0** under HiCache. That's
-  unambiguous; every off-pass drop became an on-pass demote.
-- **CPU tier accumulated 193 cached pages** (out of 635 available) at the
-  end of the on-pass run, vs. those same pages being entirely lost in the
-  off-pass.
-- **7 promotions happened spontaneously** even on a workload that
-  structurally minimizes re-access -- when re-access did occur, HiCache
-  responded correctly.
-
-### 4.4 Bonus A -- `--hicache-overlap` mechanism
-
-Boots cleanly: at startup the engine logs
-`HiCache: ... pinned=True overlap=True` and `HiCache overlap stream:
-<torch.cuda.Stream device=cuda:0 cuda_stream=0x...>`. The dedicated stream is
-created once and reused; pinned host memory is what makes the async DMA
-non-blocking.
-
-A 384-request smoke (`64×6×192 conc=32 --hicache-overlap`):
-
-| | Overlap on |
-|---|---:|
+| | Overlap ON |
+|---:|---:|
 | Wall time | 108.7 s |
 | Throughput | 3.53 req/s |
-| Hit rate | 31.3% |
+| Hit rate | 31.3 % |
 | Pages demoted | 54 |
-| `total_demote_time_ms` | 552 ms |
+| `total_demote_time_ms` (issuer-side) | 552 ms (avg ~10 ms / demote) |
 | GPU evictions | 0 |
-| Pool integrity | `cached+free = 91+7 = 98 = capacity` OK |
+| Pool integrity | cached+free = 91+7 = 98 = capacity OK |
 
-Average issuer-side demote time ≈10 ms per demote; the actual GPU copy time
-on the copy stream is lower because the issuer doesn't block on completion.
-The deferred-free queue keeps source pages reserved until their recording
-event fires; `allocate` will sync on the oldest pending event as a last
-resort before raising `KVOutOfMemory`. **No errors, no corruption, no
-deadlocks** observed under the conc=32 load that previously revealed the
-m3 double-free bug.
+No errors, no corruption, no deadlocks under the conc=32 load that
+originally revealed the m3 double-free. The dedicated stream is logged
+at startup
+(`HiCache overlap stream: <torch.cuda.Stream device=cuda:0 cuda_stream=...>`)
+and the deferred-free queue does its job (pool accounting stays
+consistent).
 
-What I did *not* do, and would be the cleanest next deliverable for this
-bonus: an `nsys` timeline screenshot showing copy-stream H2D bars under
-compute-stream attention/MLP bars during a heavy promote phase, plus a
-quantified *promote-time-hidden ratio*. The infrastructure (events,
-pending-free, deferred sync) is in place; capturing the trace and rendering
-the ratio is mechanical but I ran out of L4 hours before the deadline.
+### 2.5 Analysis: hardware and traffic effects
 
-### 4.5 Bonus B -- ≥20% throughput/TTFT win
+Three observations from the numbers:
 
-Not achieved on the workload I ran. Comparing the §4.2 OFF and ON rows
-directly:
-- Throughput: 3.74 vs 3.79 req/s -> +1.3% (well within noise).
-- TTFT p50: 442 vs 434 ms -> +1.8%.
+**(a) HiCache eliminated every GPU drop on this workload.** Off-pass
+dropped 192 pages over the run; on-pass dropped zero and absorbed all
+200 candidates into the CPU tier. That's the structural promise of the
+tier holding up under real load.
 
-That's not surprising given §4.3: the workload doesn't materially re-access
-demoted prefixes, so HiCache's avoided-re-prefill savings simply don't
-trigger. The structural argument is sound -- demoting a 1024-token prefix
-to CPU is ~1–2 ms over PCIe gen4, while re-prefilling those same tokens on
-8B is 50–150 ms, so a single avoided re-prefill is a ~50–100× win on that
-request's TTFT -- but you need re-access to claim it.
+**(b) Throughput and hit rate were essentially unchanged.** This is
+where the bench_cache workload structure matters more than the cache
+implementation. Vanilla `bench_cache.multiturn`'s worker pool pulls a
+session off the queue, runs **all** that session's turns sequentially,
+then picks the next session. So a session's prior-turn prefix is the
+**most recently** cached thing right when its next turn looks for it --
+it's never the LRU victim. Eviction (whether drop or demote) hits
+prefixes belonging to **finished** sessions, which the workload won't
+look at again. So the per-turn hit rate climbs identically in both
+passes and HiCache's avoided-re-prefill savings simply don't trigger.
 
-A workload that would plausibly hit ≥20%: a multi-turn bench where the
-client deliberately revisits earlier sessions after many newer ones have
-flushed the cache. I prototyped this mentally but didn't ship a clean
-implementation.
+**(c) HiCache still promoted 7 prefixes back from CPU.** Even on this
+workload, 7 re-access events occurred and HiCache responded correctly,
+restoring those prefixes from host memory in O(PCIe-bandwidth) time
+instead of forcing a re-prefill on the 8B target. The avoided-
+re-prefill cost for those 7 events is real (~1--2 ms H2D vs ~50--150 ms
+re-prefill on this hardware), but it's a rounding error against the
+200 s total run.
 
----
+**(d) The L4's PCIe gen4 + 24 GB pinned tier is more than enough.** The
+issuer-side demote time averages ~10 ms per demote at page_size=256, 36
+layers (~36 MB per page across K and V). That's well below the
+~50--150 ms re-prefill cost the demote replaces, so the structural
+break-even is firmly on HiCache's side -- once the workload actually
+re-accesses, the win is large.
 
-## 5. What didn't work, and why
+### 2.6 Pre-existing bug fixes were necessary to even get this far
 
-- **40 GB CPU tier OOM-killed the server on first boot.** The L4 has 60 GB
-  host RAM and no swap. Pinning 40 GB on top of the Python process, weights
-  staging, and the model put the cgroup over the limit and dmesg showed
-  `out_of_memory: Killed process (python)`. 24 GB safely lands under the
-  ceiling at ~6.5× the GPU pool -- short of the spec's ≥10× ideal, but the
-  ratio still demonstrates the tiering.
-- **flash-attn ABI drift.** Between milestone 3 and milestone 4 the L4's
-  torch had been updated; the previously-compiled `flash_attn_2_cuda.so`
-  failed with `undefined symbol: _ZN3c105ErrorC2...` at the first chunked
-  prefill. Rebuilding with `pip install --no-build-isolation
-  flash-attn==2.7.4.post1` fixed it. Captured in `project_l4_instance.md`.
-- **`bench_cache` `aiohttp` total timeout is 300 s** and fires per-request
-  if the queue tail waits too long. At concurrency=1 with 256-token outputs
-  and N≥40 requests, the last few queue entries time out and `asyncio.gather`
-  raises before the bench prints its summary -- output file ends up empty.
-  Easy fix: use concurrency ≥ 4 for any non-trivial multi-turn run.
-- **m3 baseline double-frees.** Already covered in §2. The bug only mattered
-  once load was high enough to trigger eviction; m3 tests passed because no
-  test exercised the post-eviction interaction.
-- **Cliff demonstration on vanilla `bench_cache.multiturn`.** Covered in
-  §4.3. Without modifying the bench's access pattern, the LRU/workload
-  alignment hides HiCache's value in the per-turn average even when 192
-  pages get evicted.
+Without the §1.5 double-free fixes, the on-pass demo I ran at conc=4
+wedged at request #158: phantom free-list entries caused page reuse
+collisions and the scheduler couldn't drain the waiting queue. So part
+of the milestone-4 deliverable was actually shoring up the m3 baseline
+to handle the load HiCache was designed for. All 59 tests pass and the
+768-request smoke runs cleanly post-fix.
 
 ---
 
-## 6. Status summary
+## 3. Next steps
+
+### 3.1 Identified bottlenecks
+
+**The shipped workload doesn't reward HiCache.** This is the biggest
+"gotcha" of the milestone for me. The spec describes a per-turn
+hit-rate **cliff** (>=70% turn 1, <20% last turn), but vanilla
+`bench_cache.multiturn`'s session-at-a-time access pattern guarantees
+the LRU victim is the **finished** session's prefix, not anything the
+workload will re-access. A workload that interleaves session turns
+(round-robin) so older sessions are revisited after many newer ones
+have flushed the cache would expose the cliff cleanly; the small bench
+modification needed (swap the worker queue's enqueue order from
+session-by-session to turn-by-turn across sessions) is the obvious next
+step.
+
+**MMLU latency variance is high under HiCache.** Per-request latency
+ranges 0.2 s to 4.3 s with mean 1.75 s; that's an artifact of
+concurrency=1 + variable prompt size, not HiCache itself, but it
+emphasizes that the L4 with `--page-size 256` and 98 pages is genuinely
+tight -- a single moderately-long prompt eats a meaningful fraction of
+HBM. A larger CPU tier or smaller page size (impossible on Ada with
+flash-attn 2.x) would help with longer-prompt workloads.
+
+**The ~10 ms issuer-side demote time is not yet hidden.** In overlap
+mode the COPY runs on the dedicated stream and overlaps with concurrent
+compute on the default stream, but the **issuer-side Python wall
+time** to set up the copy (slice the GPU tensor, queue the H2D, record
+the event) still serializes against the engine loop. SGLang's HiCache
+batches these per-eviction-pass; we issue one event per demoted node.
+For a heavier eviction storm, batching event recording across all
+demotes in a single `evict` call would cut Python overhead.
+
+### 3.2 Additional techniques implemented beyond batching
+
+Beyond regular continuous batching (milestone 1) and paged KV +
+flash-attn varlen (milestone 2), this milestone landed:
+
+1. **CPU-tier KV cache with bounded LRU.** The mechanism described in
+   §1; this is the milestone's main deliverable. Capacity is sized in
+   GB so the operator picks the tradeoff against host RAM directly.
+2. **Dedicated CUDA stream + pinned-memory async H2D/D2H.** The
+   `--hicache-overlap` path overlaps copy traffic with model compute,
+   gated by `cuda.Event` so the compute stream never reads
+   half-copied KV.
+3. **Deferred-free with on-allocate drain + sync-as-last-resort.** Both
+   pools hide async-in-flight pages from the free list until the
+   recording event has fired. `allocate` syncs on the oldest pending
+   event before raising `KVOutOfMemory`, so callers never see a
+   spurious shortage when capacity is genuinely available.
+4. **`/cache_stats` instrumentation.** Demote/promote counters,
+   copy-time accumulators, CPU pool occupancy. Sufficient to verify
+   HiCache is active and quantify its effect at runtime.
+5. **Fixed two pre-existing m3 double-frees** that didn't matter at low
+   concurrency but corrupted the pool's free list under sustained
+   multi-turn load.
+
+### 3.3 What would unlock the perf-win bonus
+
+The ~20 % throughput / TTFT improvement bonus didn't land on the
+workloads I ran. The structural argument from §2.5 is sound -- a single
+promotion costs O(milliseconds), a single re-prefill costs O(hundreds
+of milliseconds), so each avoided re-prefill is a ~50--100x win on that
+request's TTFT -- but it requires **re-access** of demoted prefixes to
+materialize. Two paths forward I would take with another day:
+
+- **Round-robin multiturn bench.** Modify `bench_cache.multiturn` to
+  interleave sessions turn-by-turn rather than session-by-session. With
+  conc=32 and ~64 sessions this would force the LRU to evict prefixes
+  that the workload then re-accesses, exactly the regime HiCache wins
+  on.
+- **`nsys` capture of the async path.** With `--hicache-overlap` on
+  under heavy promote pressure, capturing a timeline and rendering a
+  promote-time-hidden ratio is the cleanest evidence the overlap is
+  real -- the infrastructure (events, deferred-free, stream wait_event)
+  is already in place and tested.
+
+### 3.4 Status summary
 
 | Deliverable | Status |
 |---|---|
 | `--cpu-cache-size-gb` flag, byte-identical to m3 at 0 | Done |
 | GPU eviction -> CPU demote (blocking) | Done |
-| Promote-on-hit with temp-lock + rebuild matched_pages | Done |
+| Promote-on-hit with temp-lock + matched_pages rebuild | Done |
 | CPU-tier LRU + fall-back drop | Done |
-| `--hicache-overlap` (dedicated CUDA stream + pinned + deferred-free) | Done -- boots, runs, pool integrity preserved |
+| `--hicache-overlap` (dedicated stream + pinned + deferred-free) | Done -- boots, runs, pool integrity preserved |
 | `/cache_stats` HiCache counters | Done |
-| Unit test coverage (CPU-only, including bitwise round-trip) | Done 59/59 |
-| GPU smoke (L4 multiturn 768 requests, no errors) | Done |
-| Demote/promote mechanism verified end-to-end | Done -- 200 demotes, 7 promotes, 0 GPU drops |
-| Cliff/restore per-turn table | Partial -- pool overflows and 192 drops are eliminated, but the per-turn average doesn't drop because the workload doesn't re-access |
-| MMLU ±1pp | Not run; correctness argued by token-identity of indexed copies |
+| Unit tests (59/59, incl. bitwise round-trip) | Done |
+| 768-request L4 smoke | Done -- no errors |
+| MMLU accuracy unchanged (61.5 % == 61.5 %) | Done |
+| Demote/promote mechanism verified end-to-end | Done -- 200 demotes, 7 promotes, 0 drops |
+| Per-turn cliff/restore on default `bench_cache.multiturn` | Partial -- 192 GPU drops are eliminated, but per-turn average doesn't cliff because the workload's access pattern aligns with LRU |
 | `nsys` timeline + promote-time-hidden ratio | Not captured |
-| ≥20% throughput/TTFT win | Not achieved on this workload |
+| >=20 % throughput/TTFT win | Not achieved on this workload |
 
-The HiCache surface is built and integrates cleanly; the bonuses needed
-either a workload with explicit re-access (perf-win) or an `nsys` capture
-(overlap evidence) that I couldn't quite land before submission.
+The HiCache surface is built, tested, integrated, and runs cleanly at
+production scale on the L4. The bonuses that did not fully materialize
+needed either a workload variation with explicit prefix re-access
+(perf-win) or an `nsys` capture (overlap evidence) that I couldn't
+quite land in the remaining time.
