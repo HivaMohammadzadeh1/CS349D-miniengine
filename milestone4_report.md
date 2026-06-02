@@ -17,7 +17,7 @@ and has its own LRU; only when both tiers can't make room does HiCache fall
 back to the m3 drop path (so eviction always makes progress).
 
 All three deliverables ship and run end-to-end on the L4:
-- **Full credit** (per-turn cliff with HiCache off; HiCache restores hit rate).
+- **Cliff / restore** (per-turn cliff with HiCache off; HiCache restores hit rate).
 - **Async overlap bonus** (`--hicache-overlap` + dedicated CUDA stream + pinned memory + event-gated reuse).
 - **>=20 % perf-win bonus** -- on the re-access workload below, HiCache delivers **a 63 % TTFT_p50 reduction**, **40 % latency_p50 reduction**, and **37 % wall-time reduction** vs the milestone-3 baseline. MMLU accuracy is **identical** (61.5 % both ways).
 
